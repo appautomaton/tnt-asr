@@ -9,15 +9,19 @@ Tap `Space` to start recording, tap it again to transcribe, or hold `Space` to r
 
 ## Branch status
 
-This is the active laptop-focused TNT line. It targets macOS arm64 first and
-Linux laptops/desktops second.
+- `master`: active laptop-focused line. Targets macOS arm64 first and Linux
+  laptops/desktops second. Android/Termux is not supported here.
+- `legacy/android-termux-qwen0.6b`: preserved Android/Termux proot line with
+  Qwen3-ASR-0.6B. This branch is no longer actively supported and may need
+  device-specific fixes. Validate locally and use your own tooling or agentic AI
+  workflows to adapt it.
 
-Android/Termux proot support is preserved on the
-`legacy/android-termux-qwen0.6b` branch with the smaller Qwen3-ASR-0.6B runtime.
-That branch is no longer the active development line and should be treated as a
-legacy starting point. Android users should use their own discretion and
-validation, including their own tooling or agentic AI workflows, to adapt it for
-their device and environment.
+For Android/Termux:
+
+```bash
+git fetch origin
+git switch --track origin/legacy/android-termux-qwen0.6b
+```
 
 ## Setup
 
