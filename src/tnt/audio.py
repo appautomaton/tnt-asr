@@ -98,18 +98,26 @@ class MicRecorder:
         self._recording = True
 
         try:
-            self._stream = sd.InputStream(
+            stream = sd.InputStream(
                 samplerate=self.sample_rate,
                 channels=self.channels,
                 dtype=self.dtype,
                 device=self.device,
                 callback=self._audio_callback,
             )
-            self._stream.start()
+            stream.start()
         except Exception as exc:
             self._recording = False
             self._stream = None
             raise RuntimeError(self._build_mic_error(str(exc))) from exc
+
+        self._stream = stream
+        # start() runs on a worker thread; if a stop raced ahead of us while
+        # the stream was opening, shut the orphaned stream down immediately.
+        if not self._recording:
+            self._stream = None
+            self._abort_stream(stream)
+            self._close_stream(stream)
 
     def stop(self) -> bytes:
         """Stop recording, close the stream, return WAV bytes."""

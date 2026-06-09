@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 
@@ -32,6 +33,35 @@ def test_mic_recorder_stop_aborts_stream_without_stop(monkeypatch) -> None:
 
     assert wav_bytes
     assert calls == ["abort:True", "close:True"]
+
+
+def test_start_aborts_orphaned_stream_when_stop_races_ahead(monkeypatch) -> None:
+    """A stop arriving while the stream opens must not leave the mic running."""
+    monkeypatch.delenv("TNT_INPUT_DEVICE", raising=False)
+    recorder = MicRecorder()
+    calls: list[str] = []
+
+    class FakeStream:
+        def start(self) -> None:
+            calls.append("start")
+            # Simulate the race: a stop lands while the stream is opening.
+            recorder.begin_stop()
+
+        def abort(self, ignore_errors=True):  # noqa: ANN001
+            calls.append("abort")
+
+        def close(self, ignore_errors=True):  # noqa: ANN001
+            calls.append("close")
+
+    monkeypatch.setattr(
+        "tnt.audio.sd", SimpleNamespace(InputStream=lambda **kwargs: FakeStream())
+    )
+
+    recorder.start()
+
+    assert recorder._stream is None
+    assert recorder.is_recording is False
+    assert calls == ["start", "abort", "close"]
 
 
 def test_audio_callback_ignores_late_frames_after_stop(monkeypatch) -> None:

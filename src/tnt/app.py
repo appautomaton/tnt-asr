@@ -3,6 +3,7 @@
 import asyncio
 import signal
 import subprocess
+import threading
 
 from rich.table import Table
 from rich.text import Text
@@ -307,14 +308,24 @@ class TntApp(App):
             self._transcribe_worker.cancel()
 
     def _abort_inflight_work(self) -> None:
-        """Best-effort shutdown for recorder + transcription worker."""
+        """Best-effort shutdown for recorder + transcription worker.
+
+        Must never block: PortAudio calls can wedge, and this runs from
+        signal handlers and quit paths where a frozen UI thread would make
+        the app unkillable.
+        """
         self._reset_space_recording_mode()
         if self._recording_timer is not None:
             self._recording_timer.stop()
             self._recording_timer = None
+        recorder = self.recorder
         try:
-            if self.recorder.is_recording:
-                self.recorder.begin_stop()
+            if recorder.is_recording:
+                threading.Thread(
+                    target=recorder.begin_stop,
+                    name="tnt-recorder-abort",
+                    daemon=True,
+                ).start()
         except Exception:
             pass
         if self._transcriber is not None:
@@ -322,33 +333,60 @@ class TntApp(App):
         if self._transcribe_worker is not None:
             self._transcribe_worker.cancel()
 
-    def _start_recording(self) -> None:
-        """Begin mic capture."""
-        self._reset_space_recording_mode()
+    def _recreate_recorder(self) -> None:
+        """Abandon a wedged recorder and build a fresh one."""
         try:
-            self.recorder.start()
-        except Exception as e:
-            self.notify(f"Mic error: {e}", severity="error")
-            return
+            self.recorder = create_recorder()
+        except Exception as exc:
+            self.notify(f"Recorder reset failed: {exc}", severity="error")
 
+    def _start_recording(self) -> None:
+        """Begin mic capture on a worker thread; the UI never touches PortAudio."""
+        self._reset_space_recording_mode()
         self._recording_session_id += 1
         self.state = "recording"
+        self.run_worker(self._start_capture(self._recording_session_id))
+
+    async def _start_capture(self, session_id: int) -> None:
+        """Async worker: open the input stream without blocking the UI."""
+        try:
+            await asyncio.wait_for(
+                asyncio.shield(
+                    start_daemon_thread(self.recorder.start, name="tnt-recorder-start")
+                ),
+                10,
+            )
+        except asyncio.TimeoutError:
+            self._recreate_recorder()
+            if session_id == self._recording_session_id and self.state == "recording":
+                self.state = "idle"
+                self.notify(
+                    "Mic start timed out; audio backend reset. Try again.",
+                    severity="error",
+                )
+            return
+        except Exception as e:
+            if session_id == self._recording_session_id and self.state == "recording":
+                self.state = "idle"
+                self.notify(f"Mic error: {e}", severity="error")
+            return
+
+        if session_id != self._recording_session_id or self.state != "recording":
+            # Stopped before the mic finished opening; clean up off-thread.
+            threading.Thread(
+                target=self.recorder.stop, name="tnt-recorder-cleanup", daemon=True
+            ).start()
+            return
+
         self._recording_timer = self.set_interval(0.1, self._update_recording_info)
 
     def _stop_recording(self) -> None:
-        """Stop mic capture, launch transcription worker."""
+        """Hand mic shutdown and transcription to a worker; never block the UI."""
         self._reset_space_recording_mode()
         if self._recording_timer is not None:
             self._recording_timer.stop()
             self._recording_timer = None
         duration = self.recorder.elapsed()
-
-        try:
-            self.recorder.begin_stop()
-        except Exception as e:
-            self.notify(f"Stop error: {e}", severity="error")
-            self.state = "idle"
-            return
 
         self.state = "stopping"
         session_id = self._recording_session_id
@@ -361,6 +399,7 @@ class TntApp(App):
         """Async worker: stop capture and transcribe without blocking the UI."""
         tv = self.query_one(TranscriptView)
         try:
+            # recorder.stop() aborts the stream and drains captured audio.
             wav_bytes = await asyncio.wait_for(
                 asyncio.shield(
                     start_daemon_thread(
@@ -368,12 +407,13 @@ class TntApp(App):
                         name="tnt-recorder-stop",
                     )
                 ),
-                30,
+                10,
             )
         except asyncio.TimeoutError:
             tv.remove_placeholder()
+            self._recreate_recorder()
             self.notify(
-                "Stop timed out; reset and try again.",
+                "Mic stop timed out (audio backend stuck); recorder reset.",
                 severity="error",
             )
             if session_id == self._recording_session_id:
