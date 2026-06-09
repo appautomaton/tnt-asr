@@ -24,6 +24,41 @@ _DOT_BITS = (
     (0x08, 0x10, 0x20, 0x80),  # right column, top to bottom
 )
 
+# Multi-stop gradients: amplitude picks the position, low -> high.
+_GRADIENTS = {
+    "idle": ((0x2B, 0x3A, 0x8F), (0x3F, 0x6C, 0xFF), (0x46, 0xC8, 0xFF), (0x7A, 0xF2, 0xFF)),
+    "recording": (
+        (0x5B, 0x3D, 0xF5),
+        (0x9B, 0x4D, 0xFF),
+        (0xFF, 0x4F, 0xD8),
+        (0xFF, 0x7A, 0x59),
+        (0xFF, 0xD2, 0x4A),
+    ),
+    "stopping": ((0x7A, 0x5B, 0x2A), (0xCA, 0xA1, 0x4A), (0xFF, 0xD1, 0x66), (0xFF, 0xE9, 0xA8)),
+    "transcribing": (
+        (0x3F, 0x5D, 0xFF),
+        (0x8D, 0x6B, 0xFF),
+        (0xFF, 0x71, 0xCE),
+        (0xFF, 0xB8, 0x6B),
+    ),
+}
+
+_EDGE_DIM = 0.35  # brightness falloff from the center line to the edges
+_SHIMMER = 0.10  # spatial drift along the gradient, per column
+
+
+def _gradient_color(stops: tuple, t: float, brightness: float = 1.0) -> str:
+    """Interpolate a multi-stop RGB gradient at t in [0, 1]."""
+    t = max(0.0, min(1.0, t))
+    scaled = t * (len(stops) - 1)
+    index = min(int(scaled), len(stops) - 2)
+    frac = scaled - index
+    (r1, g1, b1), (r2, g2, b2) = stops[index], stops[index + 1]
+    r = int((r1 + (r2 - r1) * frac) * brightness)
+    g = int((g1 + (g2 - g1) * frac) * brightness)
+    b = int((b1 + (b2 - b1) * frac) * brightness)
+    return f"#{r:02x}{g:02x}{b:02x}"
+
 
 class StatusPanel(Widget):
     """Borderless side rail: braille oscilloscope, state line, model info."""
@@ -180,14 +215,13 @@ class StatusPanel(Widget):
         ]
 
     def _render_waveform(self) -> Text:
-        """Render a symmetric braille oscilloscope around the vertical center."""
-        palettes = {
-            "idle": ("#3f4f8f", "#5f6cff", "#5ad8ff", "#6ef3ff"),
-            "recording": ("#7f5dff", "#ff4fd8", "#ff9f1c", "#ffe347"),
-            "stopping": ("#8a6d3b", "#ffb347", "#ffd166", "#ffe347"),
-            "transcribing": ("#6d7bff", "#ff71ce", "#ffb347", "#ffe347"),
-        }
-        palette = palettes.get(self.state, palettes["idle"])
+        """Render a symmetric braille oscilloscope around the vertical center.
+
+        Color is two-dimensional: amplitude picks the position along a
+        multi-stop gradient (with a gentle spatial shimmer per column), and
+        distance from the center line dims the cell for a glow falloff.
+        """
+        stops = _GRADIENTS.get(self.state, _GRADIENTS["idle"])
 
         width = self._waveform_width()
         rows = self._waveform_rows
@@ -204,6 +238,10 @@ class StatusPanel(Widget):
         for row in range(rows):
             if row > 0:
                 text.append("\n")
+            # Glow falloff: character rows near the center line stay bright.
+            row_mid = row * 4 + 2
+            edge = abs(row_mid - center) / max(center, 1)
+            brightness = 1.0 - _EDGE_DIM * edge
             for col in range(width):
                 bits = 0
                 peak = 0.0
@@ -218,7 +256,11 @@ class StatusPanel(Widget):
                         if top <= y < bottom:
                             bits |= _DOT_BITS[sub_col][sub_row]
                 if bits:
-                    color = palette[min(len(palette) - 1, int(peak * len(palette)))]
+                    shimmer = _SHIMMER * math.sin(
+                        (col / max(width, 1)) * 2 * math.pi + self._sine_tick * 0.1
+                    )
+                    t = 0.12 + 0.88 * peak + shimmer
+                    color = _gradient_color(stops, t, brightness)
                     text.append(chr(_BRAILLE_BASE + bits), style=f"bold {color}")
                 else:
                     text.append(" ")
