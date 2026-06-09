@@ -10,32 +10,30 @@ from textual.reactive import reactive
 from textual.widget import Widget
 from textual.widgets import Static
 
-WAVEFORM_COLS = 16
-WAVEFORM_UPPER_ROWS = 3
-WAVEFORM_LOWER_ROWS = 3
-WAVEFORM_ROWS = WAVEFORM_UPPER_ROWS + WAVEFORM_LOWER_ROWS
-IDLE_LEVEL = 0.12
+WAVEFORM_HEIGHT = 6  # braille cell rows -> 24 dot rows
+HISTORY_MAXLEN = 512  # level samples kept for the scrolling oscilloscope
+IDLE_LEVEL = 0.10
+FALLBACK_WIDTH = 16
 
-# Upper half: fill from bottom up (8 sub-levels per cell).
-_UPPER_BLOCKS = " ▁▂▃▄▅▆▇█"
-_UPPER_SUBCELLS = WAVEFORM_UPPER_ROWS * 8
-
-# Lower half: fill from top down (2 sub-levels per cell: ▀ and █).
-_LOWER_BLOCKS = " ▀█"
-_LOWER_SUBCELLS = WAVEFORM_LOWER_ROWS * 2
+# Braille cell: 2 dot columns x 4 dot rows. Bit for (dot_col, dot_row).
+_BRAILLE_BASE = 0x2800
+_DOT_BITS = (
+    (0x01, 0x02, 0x04, 0x40),  # left column, top to bottom
+    (0x08, 0x10, 0x20, 0x80),  # right column, top to bottom
+)
 
 
 class StatusPanel(Widget):
-    """Shows recording state, elapsed time, and audio level."""
+    """Borderless side rail: braille oscilloscope, state line, model info."""
 
     DEFAULT_CSS = """
     StatusPanel {
-        border: solid #00e5ff;
-        border-title-color: #ff9df0;
-        background: #12082a;
+        background: #161618;
         color: #f8f4ff;
         layout: vertical;
         align: center middle;
+        padding: 1 2;
+        min-width: 24;
     }
 
     StatusPanel > Static {
@@ -47,32 +45,34 @@ class StatusPanel(Widget):
         height: 6;
     }
 
-    #state-label {
+    #state-line {
         margin: 1 0 0 0;
     }
 
-    #state-timer {
-        color: #7afcff;
+    #model-line {
+        dock: bottom;
     }
     """
 
     state: reactive[str] = reactive("idle")
 
-    def __init__(self, **kwargs) -> None:
+    def __init__(self, model_label: str = "", **kwargs) -> None:
         super().__init__(**kwargs)
-        self.border_title = "Status"
-        self._levels: deque[float] = deque(
-            [IDLE_LEVEL] * WAVEFORM_COLS, maxlen=WAVEFORM_COLS
-        )
+        self._model_label = model_label
+        self._levels: deque[float] = deque(maxlen=HISTORY_MAXLEN)
+        self._elapsed = 0.0
         self._sine_tick: int = 0
         self._transcribe_timer = None
 
     def compose(self) -> ComposeResult:
         yield Static(id="waveform")
-        yield Static(id="state-label")
-        yield Static(id="state-timer")
+        yield Static(id="state-line")
+        yield Static(id="model-line")
 
     def on_mount(self) -> None:
+        self._refresh_display()
+
+    def on_resize(self, event) -> None:
         self._refresh_display()
 
     def watch_state(self, value: str) -> None:
@@ -81,118 +81,155 @@ class StatusPanel(Widget):
             self._transcribe_timer.stop()
             self._transcribe_timer = None
 
+        self._elapsed = 0.0
         match value:
-            case "idle":
-                self._levels = deque(
-                    [IDLE_LEVEL] * WAVEFORM_COLS, maxlen=WAVEFORM_COLS
-                )
-                self._sine_tick = 0
+            case "recording":
+                self._levels.clear()
             case "transcribing":
                 self._sine_tick = 0
                 self._transcribe_timer = self.set_interval(
                     0.1, self._tick_transcribe_animation
                 )
+            case _:
+                self._sine_tick = 0
         self._refresh_display()
 
     def push_level(self, level: float) -> None:
         """Push a new audio level sample and refresh the waveform."""
-        self._levels.append(level)
+        self._levels.append(max(0.0, min(1.0, level)))
+        self._update_waveform()
 
-        try:
-            self.query_one("#waveform", Static).update(self._render_waveform())
-        except Exception:
-            pass
+    def update_elapsed(self, seconds: float) -> None:
+        """Update the timer shown next to the state label."""
+        self._elapsed = seconds
+        self._update_state_line()
 
     def _tick_transcribe_animation(self) -> None:
         """Periodic callback that animates a sine wave during transcription."""
         self._sine_tick += 1
-        self._apply_sine_levels(amplitude=0.25, baseline=0.10, speed=0.15)
+        self._update_waveform()
+
+    def _update_waveform(self) -> None:
         try:
             self.query_one("#waveform", Static).update(self._render_waveform())
         except Exception:
             pass
 
-    def _apply_sine_levels(
-        self, amplitude: float, baseline: float, speed: float
-    ) -> None:
-        """Overwrite all columns with a sine wave pattern."""
-        self._levels.clear()
-        for i in range(WAVEFORM_COLS):
-            phase = (i / WAVEFORM_COLS) * 2.0 * math.pi
-            t = self._sine_tick * speed
-            self._levels.append(baseline + amplitude * abs(math.sin(phase + t)))
-
-    def update_elapsed(self, seconds: float) -> None:
-        """Update the timer display."""
-        mins = int(seconds) // 60
-        secs = seconds - (mins * 60)
-        text = Text(f"{mins:02d}:{secs:04.1f}s", style="bold #7afcff", justify="center")
+    def _update_state_line(self) -> None:
         try:
-            self.query_one("#state-timer", Static).update(text)
+            self.query_one("#state-line", Static).update(self._render_state_line())
         except Exception:
             pass
 
     def _refresh_display(self) -> None:
         try:
             self.query_one("#waveform", Static).update(self._render_waveform())
-            self.query_one("#state-label", Static).update(self._render_label())
-            if self.state != "recording":
-                self.query_one("#state-timer", Static).update("")
+            self.query_one("#state-line", Static).update(self._render_state_line())
+            self.query_one("#model-line", Static).update(self._render_model_line())
         except Exception:
             pass
 
+    def _waveform_width(self) -> int:
+        """Current waveform width in character cells, tracking panel size."""
+        try:
+            width = self.query_one("#waveform", Static).content_size.width
+        except Exception:
+            width = 0
+        return width if width > 0 else FALLBACK_WIDTH
+
+    def _column_levels(self, dot_cols: int) -> list[float]:
+        """One level (0..1) per braille dot column for the current state."""
+        match self.state:
+            case "recording":
+                history = list(self._levels)[-dot_cols:]
+                pad = dot_cols - len(history)
+                return [IDLE_LEVEL * 0.3] * pad + history
+            case "stopping":
+                return self._sine_levels(dot_cols, amplitude=0.08, baseline=0.04)
+            case "transcribing":
+                return self._sine_levels(
+                    dot_cols, amplitude=0.25, baseline=0.10, speed=0.15
+                )
+            case _:
+                return [IDLE_LEVEL] * dot_cols
+
+    def _sine_levels(
+        self,
+        dot_cols: int,
+        amplitude: float,
+        baseline: float,
+        speed: float = 0.0,
+    ) -> list[float]:
+        t = self._sine_tick * speed
+        return [
+            baseline + amplitude * abs(math.sin((x / max(dot_cols, 1)) * 2 * math.pi + t))
+            for x in range(dot_cols)
+        ]
+
     def _render_waveform(self) -> Text:
+        """Render a symmetric braille oscilloscope around the vertical center."""
         palettes = {
-            "idle": ("#5f6cff", "#5ad8ff", "#8f7dff", "#6ef3ff"),
-            "recording": (
-                "#ff4fd8",
-                "#ff6f91",
-                "#ff9f1c",
-                "#ffe347",
-                "#42f5ff",
-                "#7f5dff",
-            ),
-            "transcribing": ("#ffe347", "#ffb347", "#ff71ce", "#8ef6ff", "#6d7bff"),
+            "idle": ("#3f4f8f", "#5f6cff", "#5ad8ff", "#6ef3ff"),
+            "recording": ("#7f5dff", "#ff4fd8", "#ff9f1c", "#ffe347"),
+            "stopping": ("#8a6d3b", "#ffb347", "#ffd166", "#ffe347"),
+            "transcribing": ("#6d7bff", "#ff71ce", "#ffb347", "#ffe347"),
         }
         palette = palettes.get(self.state, palettes["idle"])
-        text = Text(justify="center")
 
-        for row in range(WAVEFORM_ROWS):
+        width = self._waveform_width()
+        dot_cols = width * 2
+        dot_rows = WAVEFORM_HEIGHT * 4
+        center = dot_rows // 2
+        levels = self._column_levels(dot_cols)
+
+        # Per dot column: envelope half-height in dots (>=1 keeps a center line).
+        max_half = center - 1
+        half_heights = [max(1, round(level * max_half)) for level in levels]
+
+        text = Text()
+        for row in range(WAVEFORM_HEIGHT):
             if row > 0:
                 text.append("\n")
-            for col in range(WAVEFORM_COLS):
-                level = self._levels[col]
-                color = palette[col % len(palette)]
-
-                if row < WAVEFORM_UPPER_ROWS:
-                    # Upper half: bars grow upward from center.
-                    upper_sub = round(level * _UPPER_SUBCELLS)
-                    row_from_center = WAVEFORM_UPPER_ROWS - 1 - row
-                    below = row_from_center * 8
-                    fill = max(0, min(8, upper_sub - below))
-                    char = _UPPER_BLOCKS[fill]
-                else:
-                    # Lower half: bars grow downward from center.
-                    lower_sub = round(level * _LOWER_SUBCELLS)
-                    row_from_center = row - WAVEFORM_UPPER_ROWS
-                    above = row_from_center * 2
-                    fill = max(0, min(2, lower_sub - above))
-                    char = _LOWER_BLOCKS[fill]
-
-                if char != " ":
-                    text.append(char, style=f"bold {color}")
+            for col in range(width):
+                bits = 0
+                peak = 0.0
+                for sub_col in range(2):
+                    x = col * 2 + sub_col
+                    half = half_heights[x]
+                    peak = max(peak, levels[x])
+                    top = center - half
+                    bottom = center + half
+                    for sub_row in range(4):
+                        y = row * 4 + sub_row
+                        if top <= y < bottom:
+                            bits |= _DOT_BITS[sub_col][sub_row]
+                if bits:
+                    color = palette[min(len(palette) - 1, int(peak * len(palette)))]
+                    text.append(chr(_BRAILLE_BASE + bits), style=f"bold {color}")
                 else:
                     text.append(" ")
-
         return text
 
-    def _render_label(self) -> Text:
+    def _render_state_line(self) -> Text:
         text = Text(justify="center")
         match self.state:
             case "idle":
                 text.append("■ READY", style="bold #7afcff")
             case "recording":
-                text.append("● RECORDING", style="bold #ff5ccf")
+                text.append("● REC", style="bold #ff5ccf")
+                mins = int(self._elapsed) // 60
+                secs = self._elapsed - (mins * 60)
+                text.append(f"  {mins:02d}:{secs:04.1f}", style="bold #7afcff")
+            case "stopping":
+                text.append("◌ STOPPING MIC", style="bold #ffd166")
             case "transcribing":
                 text.append("◌ TRANSCRIBING", style="bold #ffd166")
+        return text
+
+    def _render_model_line(self) -> Text:
+        text = Text(justify="center")
+        if self._model_label:
+            text.append(self._model_label, style="#6e6e76")
+            text.append(" · ", style="#3f3f46")
+            text.append("16kHz", style="#6e6e76")
         return text

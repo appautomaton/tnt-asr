@@ -1,5 +1,13 @@
 # TNT 🧨
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
+[![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-black?logo=apple)](https://developer.apple.com/documentation/apple-silicon)
+
+Terminal voice-to-text. Tap <kbd>Space</kbd>, speak, tap <kbd>Space</kbd> — your words land in the transcript and on the clipboard.
+
+Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.com/appautomaton/mlx-speech): the model loads once, stays resident, and transcribes a short take in about a second. Fully local — no cloud, no runtime network calls, no helper subprocesses.
+
 > [!NOTE]
 > Using Termux on Android? Use the preserved
 > `legacy/android-termux-qwen0.6b` branch instead of `master`.
@@ -11,66 +19,57 @@
 > git switch --track origin/legacy/android-termux-qwen0.6b
 > ```
 
-Terminal voice-to-text with local ASR backends:
+## Features
 
-- Moonshine v2 medium-streaming (`moonshine-streaming-medium`) via Moonshine C API
-- Qwen3-ASR-1.7B via `qwen_asr` C binary
-
-Tap `Space` to start recording, tap it again to transcribe, or hold `Space` to record until release. All local, no runtime network calls.
+- **In-process GPU inference** — pure MLX, no PyTorch, no subprocess lifecycle
+- **Resident model** — loads once in the background at startup; every take is warm
+- **English, Chinese, and mixed speech** — language auto-detected, or forced via env var
+- **Live braille oscilloscope** — real audio levels while you record
+- **Clipboard-first** — new transcriptions auto-copy; click any past entry to copy it again
+- **Responsive TUI** — side-rail layout on wide terminals, stacked on narrow ones
 
 ## Setup
 
-> [!NOTE]
-> Requires Python 3.12+, [uv](https://docs.astral.sh/uv/), a C/C++ toolchain, and CMake.
->
-> Reference platform: macOS arm64 laptops. Linux remains secondary and Android/Termux is not supported on this branch.
->
-> On macOS, if compile tools are missing, run `xcode-select --install`.
-
-### Quick start
+> [!IMPORTANT]
+> Requires an Apple Silicon Mac (M1 or later), Python 3.13+, and [uv](https://docs.astral.sh/uv/).
 
 ```bash
 git clone https://github.com/appautomaton/tnt-asr.git
 cd tnt-asr
 uv sync
-./bootstrap-moonshine.sh
-# Optional fallback backend
-./bootstrap-qwen-asr.sh
+./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16
 uv run tnt
 ```
 
-### Backend setup scripts
+### Model checkpoint
 
-- `./bootstrap-moonshine.sh`
-  - Downloads pinned Moonshine source (`v0.0.49`)
-  - Builds `bin/moonshine_asr`
-  - Installs runtime libs under `bin/moonshine-runtime/<platform>/`
-  - Downloads medium-streaming model files to `bin/moonshine-models/medium-streaming-en/`
-- `./bootstrap-qwen-asr.sh`
-  - Builds `bin/qwen_asr` from vendored `bin/qwen-asr/`
-  - Downloads Qwen3-ASR-1.7B files to `bin/qwen3-asr-1.7b/`
-
-### Run
+TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint (BF16). Convert the
+upstream Qwen weights with mlx-speech's `scripts/convert/qwen3_asr.py`, then
+point the bootstrap script at the result:
 
 ```bash
-uv run tnt
+./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16
 ```
 
-## ASR backend selection
+This symlinks the checkpoint to `bin/qwen3-asr-mlx` and validates that the
+required files are present.
 
-- Default backend: `moonshine`
-- Backend env var: `TNT_ASR_BACKEND=moonshine` or `TNT_ASR_BACKEND=qwen`
-- If selected backend is missing, TNT automatically falls back to the other backend and shows a warning.
+## Configuration
+
+| Environment variable | Default | Description |
+|----------------------|---------|-------------|
+| `TNT_MLX_MODEL` | `bin/qwen3-asr-mlx` | Path to the converted MLX checkpoint |
+| `TNT_MLX_LANGUAGE` | `auto` | `Chinese`, `English`, or `auto`. Use `Chinese` to keep mixed Chinese/English speech from being translated to English |
+| `TNT_INPUT_DEVICE` | system default | Microphone, by index or name |
 
 ## Keybindings
 
 | Key | Action |
 |-----|--------|
-| <kbd>Space</kbd> | Start / stop recording, or hold-to-record until release |
-| <kbd>m</kbd> | Switch ASR backend (idle only) |
-| <kbd>c</kbd> | Copy last transcript entry to clipboard |
-| <kbd>C</kbd> | Copy all transcript entries to clipboard |
-| <kbd>x</kbd> | Clear transcript |
+| <kbd>Space</kbd> | Start / stop recording, or hold to record until release; cancels during transcription |
+| <kbd>c</kbd> | Copy the last transcript entry |
+| mouse click | Copy the clicked transcript entry |
+| <kbd>x</kbd> | Clear the transcript |
 | <kbd>q</kbd> | Quit |
 
 ## Project structure
@@ -79,34 +78,26 @@ uv run tnt
 src/tnt/
 ├── app.py             # Textual TUI, state machine, keybindings
 ├── audio.py           # Live microphone capture
-├── transcriber.py     # ASR backend wrappers (moonshine + qwen)
+├── async_threads.py   # Daemon-thread helpers for blocking work
+├── transcriber.py     # In-process MLX Qwen3-ASR transcription
 └── widgets/
     ├── transcript.py  # Scrollable transcript log
-    └── status.py      # Recording indicator + audio level visualizer
-csrc/
-└── moonshine_asr.cpp  # Native helper (stdin WAV -> Moonshine C API)
+    └── status.py      # Braille oscilloscope + state rail
 bin/
-├── qwen-asr/          # Upstream qwen-asr C source snapshot (committed)
-├── qwen_asr           # Compiled qwen helper (gitignored)
-├── qwen3-asr-1.7b/    # Qwen model files (gitignored)
-├── moonshine_asr      # Compiled moonshine helper (gitignored)
-├── moonshine-runtime/ # Moonshine + ONNX runtime libs (gitignored)
-└── moonshine-models/  # Moonshine model files (gitignored)
+└── qwen3-asr-mlx      # Symlink to converted MLX checkpoint (gitignored)
 ```
 
-## Notes
-
 > [!TIP]
-> - Input audio expected by inference path: 16 kHz, mono PCM WAV.
-> - Inference is CPU-only and local.
-> - Runtime model/binary artifacts are gitignored and fetched/built locally via bootstrap.
+> The inference path expects 16 kHz mono PCM WAV; the recorder produces exactly
+> that. Cancelling a transcription abandons its result — the in-process
+> generation cannot be killed mid-flight and quietly finishes in the background.
 
-## Third-party attribution
+## Acknowledgements
 
-- Qwen ASR C implementation: [`antirez/qwen-asr`](https://github.com/antirez/qwen-asr)
-- Moonshine Voice: [`moonshine-ai/moonshine`](https://github.com/moonshine-ai/moonshine)
-- ONNX Runtime: [`microsoft/onnxruntime`](https://github.com/microsoft/onnxruntime)
-- Third-party notice is included in [`LICENSE`](LICENSE).
+- [Qwen3-ASR](https://huggingface.co/Qwen) — the underlying speech model by the Qwen team
+- [mlx-speech](https://github.com/appautomaton/mlx-speech) — MLX-native speech runtime for Apple Silicon
+- [MLX](https://github.com/ml-explore/mlx) — Apple's array framework for Apple Silicon
+- [Textual](https://github.com/Textualize/textual) — the TUI framework
 
 ## License
 

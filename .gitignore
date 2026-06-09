@@ -9,12 +9,9 @@ wheels/
 # Virtual environments
 .venv
 
-# Model weights & compiled binary — download via setup instructions
-bin/qwen_asr
-bin/qwen3-asr-*/
-bin/moonshine_asr
-bin/moonshine-models/
-bin/moonshine-runtime/
-bin/moonshine-src/
+# Model checkpoint link — created by ./bootstrap-mlx-asr.sh
+bin/qwen3-asr-mlx
 *.safetensors
-*.gguf
+
+# macOS
+.DS_Store

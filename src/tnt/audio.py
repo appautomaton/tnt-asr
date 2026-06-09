@@ -31,6 +31,9 @@ class Recorder(Protocol):
     def stop(self) -> bytes:
         """Stop capture and return WAV bytes."""
 
+    def begin_stop(self) -> None:
+        """Abort capture immediately and hand off final cleanup."""
+
     def elapsed(self) -> float:
         """Elapsed seconds since capture start."""
 
@@ -71,6 +74,7 @@ class MicRecorder:
         self.device = self._resolve_device(device)
 
         self._stream: Any | None = None
+        self._closing_stream: Any | None = None
         self._chunks: list[np.ndarray] = []
         self._lock = threading.Lock()
         self._recording = False
@@ -109,15 +113,13 @@ class MicRecorder:
 
     def stop(self) -> bytes:
         """Stop recording, close the stream, return WAV bytes."""
-        if not self._recording:
-            return b""
+        if self._recording:
+            self.begin_stop()
 
-        self._recording = False
-
-        if self._stream is not None:
-            self._stream.stop()
-            self._stream.close()
-            self._stream = None
+        stream = self._closing_stream
+        self._closing_stream = None
+        if stream is not None:
+            self._close_stream(stream)
 
         with self._lock:
             if not self._chunks:
@@ -126,6 +128,37 @@ class MicRecorder:
             self._chunks = []
 
         return self._encode_wav(audio_data)
+
+    def begin_stop(self) -> None:
+        """Abort capture immediately so the mic turns off promptly."""
+        if not self._recording:
+            return
+
+        self._recording = False
+
+        stream = self._stream
+        self._stream = None
+        if stream is not None:
+            self._abort_stream(stream)
+            self._closing_stream = stream
+
+    def _abort_stream(self, stream: Any) -> None:
+        """Ask PortAudio to stop immediately."""
+        try:
+            stream.abort(ignore_errors=True)
+        except TypeError:
+            stream.abort()
+        except Exception:
+            pass
+
+    def _close_stream(self, stream: Any) -> None:
+        """Close a previously aborted stream."""
+        try:
+            stream.close(ignore_errors=True)
+        except TypeError:
+            stream.close()
+        except Exception:
+            pass
 
     def elapsed(self) -> float:
         """Seconds since start() was called."""
@@ -147,6 +180,8 @@ class MicRecorder:
     ) -> None:
         """Called on the audio thread for each chunk."""
         del frames, time_info, status
+        if not self._recording:
+            return
         chunk = indata.copy()
 
         samples = chunk.astype(np.float64)

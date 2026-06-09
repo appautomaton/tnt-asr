@@ -1,13 +1,14 @@
 [project]
 name = "tnt"
 version = "0.1.0"
-description = "TNT voice-to-text TUI with Moonshine and Qwen ASR backends"
+description = "TNT voice-to-text TUI with Qwen3-ASR on the Apple GPU via MLX"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.13"
 dependencies = [
     "numpy>=2.0",
     "sounddevice>=0.5",
     "textual>=3.0",
+    "mlx-speech>=0.4.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.scripts]

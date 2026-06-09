@@ -5,28 +5,40 @@ from datetime import UTC, datetime
 from rich.text import Text
 
 from textual.containers import VerticalScroll
+from textual.message import Message
 from textual.widgets import Static
-
-ENTRY_TONES = (
-    "#2f2a44",  # dusk lavender
-    "#2a3547",  # dusty blue
-    "#3a2e44",  # muted plum
-    "#2b3b3f",  # dark pastel teal
-    "#3d2f37",  # muted rose
-    "#2e3a33",  # moss slate
-)
 
 
 class TranscriptEntry(Static):
-    """A single transcript entry."""
+    """A single transcript entry; click to copy it to the clipboard."""
 
     DEFAULT_CSS = """
     TranscriptEntry {
         padding: 0 1;
         margin: 0 0 1 0;
-        color: #f4efff;
+        color: #ece6fb;
+    }
+
+    TranscriptEntry:hover {
+        background: #221a40;
     }
     """
+
+    class Selected(Message):
+        """Posted when the user clicks an entry."""
+
+        def __init__(self, text: str, seq: int) -> None:
+            super().__init__()
+            self.text = text
+            self.seq = seq
+
+    def __init__(self, content: Text, raw_text: str, seq: int, **kwargs) -> None:
+        super().__init__(content, **kwargs)
+        self.raw_text = raw_text
+        self.seq = seq
+
+    def on_click(self) -> None:
+        self.post_message(self.Selected(self.raw_text, self.seq))
 
 
 class TranscriptPlaceholder(Static):
@@ -46,47 +58,36 @@ class TranscriptView(VerticalScroll):
 
     DEFAULT_CSS = """
     TranscriptView {
-        border: solid #8e7dff;
-        border-title-color: #42f5ff;
         background: #0d041f;
-        color: #f4efff;
-        padding: 1;
+        color: #ece6fb;
+        padding: 1 2;
     }
     """
 
     def __init__(self, **kwargs) -> None:
         super().__init__(**kwargs)
         self._entries: list[str] = []
-        self.border_title = "Transcript"
 
     def append(self, text: str, duration: float = 0.0) -> None:
         """Add a new entry and scroll to bottom."""
         self.remove_placeholder()
-        tone = ENTRY_TONES[len(self._entries) % len(ENTRY_TONES)]
         seq = len(self._entries) + 1
         self._entries.append(text)
 
-        meta = self._build_meta(seq, duration)
         content = Text()
-        content.append_text(meta)
-        content.append(f"\n{text}", style="#f4efff")
+        content.append_text(self._build_meta(seq, duration))
+        content.append(f"\n{text}", style="#ece6fb")
 
-        entry = TranscriptEntry(content)
-        entry.styles.background = tone
-        self.mount(entry)
+        self.mount(TranscriptEntry(content, raw_text=text, seq=seq))
         self.scroll_end(animate=False)
 
     @staticmethod
     def _build_meta(seq: int, duration: float) -> Text:
-        """Build the neon metadata line for an entry."""
+        """Build the muted metadata line for an entry."""
         utc_time = datetime.now(UTC).strftime("%H:%M:%S")
         meta = Text()
-        meta.append("#", style="bold #42f5ff")
-        meta.append(str(seq), style="bold #39ff14")
-        meta.append(" · ", style="#7a6aa5")
-        meta.append(f"{duration:.1f}s", style="bold #ffd166")
-        meta.append(" · ", style="#7a6aa5")
-        meta.append(f"{utc_time} UTC", style="bold #7afcff")
+        meta.append(f"#{seq}", style="bold #42f5ff")
+        meta.append(f" · {duration:.1f}s · {utc_time} UTC", style="#6f5fa8")
         return meta
 
     def show_placeholder(self) -> None:
@@ -105,10 +106,6 @@ class TranscriptView(VerticalScroll):
     def get_last(self) -> str:
         """Return the last transcript entry, or empty string."""
         return self._entries[-1] if self._entries else ""
-
-    def get_all(self) -> str:
-        """Return all transcript entries joined by newlines."""
-        return "\n".join(self._entries)
 
     def clear(self) -> None:
         """Remove all transcript entries."""
