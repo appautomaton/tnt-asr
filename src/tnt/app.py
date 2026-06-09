@@ -20,7 +20,7 @@ from tnt.transcriber import (
     MlxQwenTranscriber,
     recommended_timeout,
 )
-from tnt.widgets.status import StatusPanel
+from tnt.widgets.status import COMPACT_PANEL_HEIGHT, StatusPanel
 from tnt.widgets.transcript import TranscriptEntry, TranscriptView
 
 
@@ -195,8 +195,9 @@ class TntApp(App):
             transcript.styles.width = "100%"
             transcript.styles.height = "1fr"
             status.styles.width = "100%"
-            status.styles.height = 11
+            status.styles.height = COMPACT_PANEL_HEIGHT
             status.styles.margin = (1, 0, 0, 0)
+            status.set_compact(True)
         else:
             layout.styles.layout = "horizontal"
             transcript.styles.width = "3fr"
@@ -204,6 +205,7 @@ class TntApp(App):
             status.styles.width = "1fr"
             status.styles.height = "100%"
             status.styles.margin = (0, 0, 0, 1)
+            status.set_compact(False)
 
     def on_mount(self) -> None:
         self._apply_responsive_layout(self.size.width)

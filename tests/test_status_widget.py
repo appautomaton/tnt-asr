@@ -50,3 +50,11 @@ def test_push_level_clamps_input() -> None:
     panel.push_level(-3.0)
     assert max(panel._levels) <= 1.0
     assert min(panel._levels) >= 0.0
+
+
+def test_compact_mode_shrinks_waveform() -> None:
+    panel = StatusPanel()
+    panel.set_compact(True)
+    assert len(_render_lines(panel)) == 3
+    panel.set_compact(False)
+    assert len(_render_lines(panel)) == WAVEFORM_HEIGHT

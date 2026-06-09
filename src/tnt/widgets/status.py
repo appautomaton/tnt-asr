@@ -11,6 +11,8 @@ from textual.widget import Widget
 from textual.widgets import Static
 
 WAVEFORM_HEIGHT = 6  # braille cell rows -> 24 dot rows
+COMPACT_WAVEFORM_HEIGHT = 3  # narrow-terminal strip
+COMPACT_PANEL_HEIGHT = 7  # waveform 3 + state line 2 + padding 2
 HISTORY_MAXLEN = 512  # level samples kept for the scrolling oscilloscope
 IDLE_LEVEL = 0.10
 FALLBACK_WIDTH = 16
@@ -63,6 +65,7 @@ class StatusPanel(Widget):
         self._elapsed = 0.0
         self._sine_tick: int = 0
         self._transcribe_timer = None
+        self._waveform_rows = WAVEFORM_HEIGHT
 
     def compose(self) -> ComposeResult:
         yield Static(id="waveform")
@@ -70,6 +73,16 @@ class StatusPanel(Widget):
         yield Static(id="model-line")
 
     def on_mount(self) -> None:
+        self._refresh_display()
+
+    def set_compact(self, compact: bool) -> None:
+        """Shrink the oscilloscope and hide model info for narrow strips."""
+        self._waveform_rows = COMPACT_WAVEFORM_HEIGHT if compact else WAVEFORM_HEIGHT
+        try:
+            self.query_one("#waveform", Static).styles.height = self._waveform_rows
+            self.query_one("#model-line", Static).display = not compact
+        except Exception:
+            pass
         self._refresh_display()
 
     def on_resize(self, event) -> None:
@@ -177,8 +190,9 @@ class StatusPanel(Widget):
         palette = palettes.get(self.state, palettes["idle"])
 
         width = self._waveform_width()
+        rows = self._waveform_rows
         dot_cols = width * 2
-        dot_rows = WAVEFORM_HEIGHT * 4
+        dot_rows = rows * 4
         center = dot_rows // 2
         levels = self._column_levels(dot_cols)
 
@@ -187,7 +201,7 @@ class StatusPanel(Widget):
         half_heights = [max(1, round(level * max_half)) for level in levels]
 
         text = Text()
-        for row in range(WAVEFORM_HEIGHT):
+        for row in range(rows):
             if row > 0:
                 text.append("\n")
             for col in range(width):
