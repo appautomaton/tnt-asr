@@ -15,7 +15,9 @@ Linux laptops/desktops second.
 Android/Termux proot support is preserved on the
 `legacy/android-termux-qwen0.6b` branch with the smaller Qwen3-ASR-0.6B runtime.
 That branch is no longer the active development line and should be treated as a
-legacy starting point for Android-specific adaptation.
+legacy starting point. Android users should use their own discretion and
+validation, including their own tooling or agentic AI workflows, to adapt it for
+their device and environment.
 
 ## Setup
 
