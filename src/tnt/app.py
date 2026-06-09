@@ -124,6 +124,11 @@ class TntApp(App):
     _SPACE_PENDING_STOP_SECONDS = 0.18
     _SPACE_HOLD_RELEASE_WINDOW_SECONDS = 0.30
     _NARROW_BREAKPOINT = 72
+    # Normal PortAudio calls finish in milliseconds; a wedged backend gets no
+    # patience — abandon it and rebuild. Start keeps a little headroom because
+    # Bluetooth devices legitimately take 1-2s to wake from sleep.
+    _RECORDER_STOP_TIMEOUT_SECONDS = 1.0
+    _RECORDER_START_TIMEOUT_SECONDS = 3.0
 
     CSS = """
     Screen {
@@ -354,7 +359,7 @@ class TntApp(App):
                 asyncio.shield(
                     start_daemon_thread(self.recorder.start, name="tnt-recorder-start")
                 ),
-                10,
+                self._RECORDER_START_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
             self._recreate_recorder()
@@ -407,7 +412,7 @@ class TntApp(App):
                         name="tnt-recorder-stop",
                     )
                 ),
-                10,
+                self._RECORDER_STOP_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
             tv.remove_placeholder()
