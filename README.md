@@ -12,7 +12,8 @@ Qwen3-ASR-0.6B runtime. It is no longer the active TNT development line.
 Active development continues on the laptop-focused `master` branch, which targets
 macOS arm64 first and Linux second with Moonshine as the default ASR backend.
 Android/Termux support on this branch should be treated as a legacy starting
-point: adapt it for your device and environment as needed.
+point: use your own discretion and validation, including your own tooling or
+agentic AI workflows, to adapt it for your device and environment.
 
 ## Setup
 
