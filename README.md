@@ -1,27 +1,22 @@
 # TNT 🧨
 
+> [!NOTE]
+> Using Termux on Android? Use the preserved
+> `legacy/android-termux-qwen0.6b` branch instead of `master`.
+> It is a legacy proot setup and may need device-specific fixes; validate it
+> locally and adapt it with your own tools or agentic AI workflow.
+>
+> ```bash
+> git fetch origin
+> git switch --track origin/legacy/android-termux-qwen0.6b
+> ```
+
 Terminal voice-to-text with local ASR backends:
 
 - Moonshine v2 medium-streaming (`moonshine-streaming-medium`) via Moonshine C API
 - Qwen3-ASR-1.7B via `qwen_asr` C binary
 
 Tap `Space` to start recording, tap it again to transcribe, or hold `Space` to record until release. All local, no runtime network calls.
-
-## Branch status
-
-- `master`: active laptop-focused line. Targets macOS arm64 first and Linux
-  laptops/desktops second. Android/Termux is not supported here.
-- `legacy/android-termux-qwen0.6b`: preserved Android/Termux proot line with
-  Qwen3-ASR-0.6B. This branch is no longer actively supported and may need
-  device-specific fixes. Validate locally and use your own tooling or agentic AI
-  workflows to adapt it.
-
-For Android/Termux:
-
-```bash
-git fetch origin
-git switch --track origin/legacy/android-termux-qwen0.6b
-```
 
 ## Setup
 
