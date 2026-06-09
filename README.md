@@ -4,6 +4,16 @@ Terminal voice-to-text powered by [Qwen3-ASR-0.6B](https://huggingface.co/Qwen/Q
 
 Press Space to record, Space again to transcribe. All local, no network calls.
 
+## Branch status
+
+This branch is preserved for Android/Termux proot users and for the smaller
+Qwen3-ASR-0.6B runtime. It is no longer the active TNT development line.
+
+Active development continues on the laptop-focused `master` branch, which targets
+macOS arm64 first and Linux second with Moonshine as the default ASR backend.
+Android/Termux support on this branch should be treated as a legacy starting
+point: adapt it for your device and environment as needed.
+
 ## Setup
 
 > [!NOTE]
