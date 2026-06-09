@@ -37,6 +37,10 @@ TNT is a terminal voice-to-text TUI:
   do not reintroduce a `[tool.uv.sources]` path override outside of temporary
   local debugging.
 - Keep blocking work off the UI path (use async/worker patterns).
+- The UI thread must NEVER call into PortAudio (recorder start/stop/abort).
+  PortAudio can wedge inside C where Python cannot interrupt it; all audio
+  calls run on daemon threads with timeouts (1s stop, 3s start), and timed-out
+  recorders are flagged stopped, abandoned, and rebuilt.
 - In-process MLX inference cannot be killed mid-generate: cancel/timeout must
   abandon the result, and generations are serialized behind a lock.
 
