@@ -362,7 +362,14 @@ class TntApp(App):
                 self._RECORDER_START_TIMEOUT_SECONDS,
             )
         except asyncio.TimeoutError:
+            # The abandoned start() may still complete later; flag it stopped
+            # so its post-start check closes the stream instead of leaving an
+            # ownerless mic capture running.
+            stuck = self.recorder
             self._recreate_recorder()
+            threading.Thread(
+                target=stuck.begin_stop, name="tnt-recorder-abandon", daemon=True
+            ).start()
             if session_id == self._recording_session_id and self.state == "recording":
                 self.state = "idle"
                 self.notify(
