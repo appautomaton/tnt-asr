@@ -1,9 +1,12 @@
 """Textual TUI app for voice-to-text transcription."""
 
 import asyncio
+import os
 import signal
 import subprocess
+import sys
 import threading
+import traceback
 
 from rich.table import Table
 from rich.text import Text
@@ -215,12 +218,36 @@ class TntApp(App):
 
     def on_mount(self) -> None:
         self._apply_responsive_layout(self.size.width)
+        self._install_signal_handlers()
         # Validate the model directory now so config errors surface at startup,
         # and start loading the MLX model so take one is warm.
         try:
             self._init_transcriber().warmup()
         except Exception as exc:
             self.notify(f"ASR backend error: {exc}", severity="error")
+
+    def _install_signal_handlers(self) -> None:
+        """Exit cleanly on SIGINT/SIGTERM/SIGHUP.
+
+        Must go through loop.add_signal_handler: a plain signal.signal handler
+        interrupts the event loop's kevent wait, posts the exit message, and
+        then the loop goes right back to sleep without processing it. The
+        asyncio variant wakes the loop via its wakeup fd.
+        """
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            return
+        for sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+            try:
+                loop.add_signal_handler(sig, self._handle_termination_signal)
+            except (ValueError, NotImplementedError, RuntimeError):
+                pass
+
+    def _handle_termination_signal(self) -> None:
+        """Runs on the event loop when an external termination signal lands."""
+        self._abort_inflight_work()
+        self.exit()
 
     def watch_state(self, value: str) -> None:
         try:
@@ -551,41 +578,26 @@ class TntApp(App):
 
 
 def main() -> None:
+    # SIGINT/SIGTERM/SIGHUP are handled inside the app via the asyncio loop
+    # (see TntApp._install_signal_handlers).
     app = TntApp()
 
-    # On SIGINT (Ctrl-C), abandon in-flight work so worker threads unblock
-    # and the recorder releases the input stream before exit.
-    _orig_sigint = signal.getsignal(signal.SIGINT)
-
-    def _handle_sigint(sig: int, frame: object) -> None:
-        del sig, frame
-        app._abort_inflight_work()
-        app.exit()
-
-    signal.signal(signal.SIGINT, _handle_sigint)
-
-    # SIGTERM (`kill <pid>`) and SIGHUP (terminal closed) have no default
-    # Python handler that runs our cleanup; handle them the same way.
-    _term_signals = [signal.SIGTERM]
-    if hasattr(signal, "SIGHUP"):
-        _term_signals.append(signal.SIGHUP)
-    _orig_term = {s: signal.getsignal(s) for s in _term_signals}
-
-    def _handle_term(sig: int, frame: object) -> None:
-        del sig, frame
-        app._abort_inflight_work()
-        app.exit()
-
-    for _sig in _term_signals:
-        signal.signal(_sig, _handle_term)
-
+    exit_code = 0
     try:
         app.run()
+    except BaseException:
+        traceback.print_exc()
+        exit_code = 1
     finally:
-        signal.signal(signal.SIGINT, _orig_sigint)
-        for _sig, _handler in _orig_term.items():
-            signal.signal(_sig, _handler)
         app._abort_inflight_work()
+        # Exit without running interpreter shutdown. sounddevice registers an
+        # atexit hook that calls Pa_Terminate(), and a wedged PortAudio stream
+        # deadlocks it — leaving a zombie python that keeps the microphone
+        # captured and ignores Ctrl-C. Textual has already restored the
+        # terminal at this point; the OS reclaims everything else.
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(exit_code)
 
 
 if __name__ == "__main__":

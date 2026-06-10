@@ -41,6 +41,9 @@ TNT is a terminal voice-to-text TUI:
   PortAudio can wedge inside C where Python cannot interrupt it; all audio
   calls run on daemon threads with timeouts (1s stop, 3s start), and timed-out
   recorders are flagged stopped, abandoned, and rebuilt.
+- main() must terminate via os._exit(): sounddevice's atexit hook calls
+  Pa_Terminate(), which deadlocks on a wedged stream and leaves a zombie
+  python holding the microphone. Do not "clean up" this exit path.
 - In-process MLX inference cannot be killed mid-generate: cancel/timeout must
   abandon the result, and generations are serialized behind a lock.
 
