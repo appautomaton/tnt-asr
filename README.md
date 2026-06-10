@@ -37,22 +37,26 @@ Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.
 git clone https://github.com/appautomaton/tnt-asr.git
 cd tnt-asr
 uv sync
-./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16
+./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-bf16-mlx
 uv run tnt
 ```
 
 ### Model checkpoint
 
-TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint (BF16). Convert the
-upstream Qwen weights with mlx-speech's `scripts/convert/qwen3_asr.py`, then
-point the bootstrap script at the result:
+TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint (BF16). A ready-to-use
+one is published at
+[appautomaton/qwen3-asr-1.7b-bf16-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx)
+(~4.7 GB) — download it however you prefer, then point the bootstrap script at
+it:
 
 ```bash
-./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16
+./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-bf16-mlx
 ```
 
 This symlinks the checkpoint to `bin/qwen3-asr-mlx` and validates that the
-required files are present.
+required files are present. Alternatively, convert the upstream
+[Qwen/Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) weights
+yourself with mlx-speech's `scripts/convert/qwen3_asr.py`.
 
 ## Configuration
 
@@ -94,7 +98,7 @@ bin/
 
 ## Acknowledgements
 
-- [Qwen3-ASR](https://huggingface.co/Qwen) — the underlying speech model by the Qwen team
+- [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) — the underlying speech model by the Qwen team ([converted MLX checkpoint](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx))
 - [mlx-speech](https://github.com/appautomaton/mlx-speech) — MLX-native speech runtime for Apple Silicon
 - [MLX](https://github.com/ml-explore/mlx) — Apple's array framework for Apple Silicon
 - [Textual](https://github.com/Textualize/textual) — the TUI framework

@@ -67,7 +67,8 @@ bin/
 - `./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16`
   - Symlinks a converted MLX checkpoint to `bin/qwen3-asr-mlx`
   - BF16 is currently the only supported weight format (mlx-speech defers quantization)
-  - Convert upstream weights with mlx-voice's `scripts/convert/qwen3_asr.py`
+  - Published checkpoint: `appautomaton/qwen3-asr-1.7b-bf16-mlx` on Hugging Face
+  - Or convert upstream weights with mlx-voice's `scripts/convert/qwen3_asr.py`
 
 ## Audio contract
 

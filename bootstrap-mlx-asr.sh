@@ -2,10 +2,12 @@
 # Link a local Qwen3-ASR-1.7B MLX checkpoint into bin/qwen3-asr-mlx.
 #
 # mlx-speech's Qwen3-ASR runtime is local-path only (no auto-download).
-# Convert upstream weights with mlx-voice's scripts/convert/qwen3_asr.py,
-# then point this script at the converted directory:
+# Download the published checkpoint
+# (huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx), or convert upstream
+# weights with mlx-voice's scripts/convert/qwen3_asr.py, then point this
+# script at the directory:
 #
-#   ./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16
+#   ./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-bf16-mlx
 set -euo pipefail
 
 cd "$(dirname "$0")"
@@ -14,7 +16,7 @@ SRC="${1:-}"
 DEST="bin/qwen3-asr-mlx"
 
 if [[ -z "$SRC" ]]; then
-    echo "usage: $0 /path/to/Qwen3-ASR-1.7B-MLX-BF16" >&2
+    echo "usage: $0 /path/to/qwen3-asr-1.7b-bf16-mlx" >&2
     exit 1
 fi
 
