@@ -25,7 +25,7 @@ wheels = [
 
 [[package]]
 name = "automaton-tnt"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
