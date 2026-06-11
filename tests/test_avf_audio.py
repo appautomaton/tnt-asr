@@ -72,7 +72,11 @@ def test_avf_recorder_records_and_returns_wav(tmp_path, monkeypatch) -> None:
 
     recorder.start()
     assert recorder.is_recording
-    time.sleep(0.15)
+    # Poll instead of a fixed sleep: the fake helper's first PCM chunk can
+    # arrive late on slow CI runners.
+    deadline = time.monotonic() + 5.0
+    while recorder.get_level() == 0.0 and time.monotonic() < deadline:
+        time.sleep(0.02)
     assert recorder.get_level() > 0.0
     assert recorder.elapsed() > 0.0
     wav_bytes = recorder.stop()

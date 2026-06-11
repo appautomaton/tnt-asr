@@ -30,7 +30,11 @@ def test_start_daemon_thread_survives_cancelled_wait() -> None:
             await task
         except asyncio.CancelledError:
             pass
-        await asyncio.sleep(0.1)
+        # Slow CI runners may schedule the worker thread late; poll with a
+        # generous deadline instead of assuming one tick is enough.
+        deadline = time.monotonic() + 5.0
+        while not future.done() and time.monotonic() < deadline:
+            await asyncio.sleep(0.02)
         assert future.done() is True
 
     asyncio.run(run())
