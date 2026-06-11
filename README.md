@@ -114,12 +114,10 @@ bin/
 > that. Cancelling a transcription abandons its result — the in-process
 > generation cannot be killed mid-flight and quietly finishes in the background.
 
-## Acknowledgements
+## Related projects
 
-- [qwen3-asr-1.7b-bf16-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx) — the BF16 MLX checkpoint TNT runs, converted and published by [appautomaton](https://huggingface.co/appautomaton) from the Qwen team's [Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B)
-- [mlx-speech](https://github.com/appautomaton/mlx-speech) — MLX-native speech runtime for Apple Silicon ([PyPI](https://pypi.org/project/mlx-speech/))
-- [MLX](https://github.com/ml-explore/mlx) — Apple's array framework for Apple Silicon
-- [Textual](https://github.com/Textualize/textual) — the TUI framework
+- [mlx-speech](https://github.com/appautomaton/mlx-speech) — our MLX-native speech runtime that powers TNT ([PyPI](https://pypi.org/project/mlx-speech/))
+- [qwen3-asr-1.7b-bf16-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx) — our BF16 MLX checkpoint that TNT runs (converted from Qwen3-ASR-1.7B); more on [Hugging Face](https://huggingface.co/appautomaton)
 
 ## License
 
