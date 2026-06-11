@@ -1,0 +1,33 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_call:  # reused as the test gate by the publish workflow
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    # macOS arm64 runner: TNT is Apple Silicon-only at runtime, and the suite
+    # compiles the Swift mic helper for real.
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6.0.3
+      - uses: astral-sh/setup-uv@v8.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: uv.lock
+      - name: Install dependencies (locked)
+        run: uv sync --locked
+      - name: Lint
+        run: uv run ruff check src/ tests/
+      - name: Tests
+        run: uv run python -m pytest tests/ -q
