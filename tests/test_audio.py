@@ -23,6 +23,7 @@ def test_mic_recorder_stop_aborts_stream_without_stop(monkeypatch) -> None:
             calls.append(f"stop:{ignore_errors}")
 
     monkeypatch.delenv("TNT_INPUT_DEVICE", raising=False)
+    monkeypatch.setattr("tnt.audio.sd", SimpleNamespace())
     recorder = MicRecorder()
     recorder._recording = True
     recorder._stream = FakeStream()
@@ -38,6 +39,7 @@ def test_mic_recorder_stop_aborts_stream_without_stop(monkeypatch) -> None:
 def test_start_aborts_orphaned_stream_when_stop_races_ahead(monkeypatch) -> None:
     """A stop arriving while the stream opens must not leave the mic running."""
     monkeypatch.delenv("TNT_INPUT_DEVICE", raising=False)
+    monkeypatch.setattr("tnt.audio.sd", SimpleNamespace())
     recorder = MicRecorder()
     calls: list[str] = []
 
@@ -66,6 +68,7 @@ def test_start_aborts_orphaned_stream_when_stop_races_ahead(monkeypatch) -> None
 
 def test_audio_callback_ignores_late_frames_after_stop(monkeypatch) -> None:
     monkeypatch.delenv("TNT_INPUT_DEVICE", raising=False)
+    monkeypatch.setattr("tnt.audio.sd", SimpleNamespace())
     recorder = MicRecorder()
     recorder._recording = False
 

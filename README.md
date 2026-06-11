@@ -6,7 +6,7 @@
 
 Terminal voice-to-text. Tap <kbd>Space</kbd>, speak, tap <kbd>Space</kbd> — your words land in the transcript and on the clipboard.
 
-Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.com/appautomaton/mlx-speech): the model loads once, stays resident, and transcribes a short take in about a second. Fully local — no cloud, no runtime network calls, no helper subprocesses.
+Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.com/appautomaton/mlx-speech): the model loads once, stays resident, and transcribes a short take in about a second. Fully local — no cloud, no runtime network calls. The microphone is captured natively through AVFoundation by a small Swift helper process, so a misbehaving audio stack can never trap the mic: TNT just kills the helper and macOS releases it.
 
 > [!NOTE]
 > Using Termux on Android? Use the preserved
@@ -21,8 +21,9 @@ Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.
 
 ## Features
 
-- **In-process GPU inference** — pure MLX, no PyTorch, no subprocess lifecycle
+- **In-process GPU inference** — pure MLX, no PyTorch
 - **Resident model** — loads once in the background at startup; every take is warm
+- **Native mic capture** — AVFoundation via an isolated Swift helper process; the mic can always be reclaimed
 - **English, Chinese, and mixed speech** — language auto-detected, or forced via env var
 - **Live braille oscilloscope** — real audio levels while you record
 - **Clipboard-first** — new transcriptions auto-copy; click any past entry to copy it again
@@ -31,7 +32,10 @@ Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.
 ## Setup
 
 > [!IMPORTANT]
-> Requires an Apple Silicon Mac (M1 or later), Python 3.13+, and [uv](https://docs.astral.sh/uv/).
+> Requires an Apple Silicon Mac (M1 or later), Python 3.13+,
+> [uv](https://docs.astral.sh/uv/), and the Xcode command line tools
+> (`xcode-select --install`) — the mic capture helper is compiled from Swift
+> on first launch and cached.
 
 ```bash
 git clone https://github.com/appautomaton/tnt-asr.git
@@ -65,6 +69,7 @@ yourself with mlx-speech's `scripts/convert/qwen3_asr.py`.
 | `TNT_MLX_MODEL` | `bin/qwen3-asr-mlx` | Path to the converted MLX checkpoint |
 | `TNT_MLX_LANGUAGE` | `auto` | `Chinese`, `English`, or `auto`. Use `Chinese` to keep mixed Chinese/English speech from being translated to English |
 | `TNT_INPUT_DEVICE` | system default | Microphone, by index or name |
+| `TNT_CAPTURE_BACKEND` | `auto` | macOS always uses native AVFoundation (needs the Xcode command line tools: `xcode-select --install`); other platforms use PortAudio. `portaudio` is rejected on macOS |
 
 ## Keybindings
 
@@ -81,7 +86,9 @@ yourself with mlx-speech's `scripts/convert/qwen3_asr.py`.
 ```text
 src/tnt/
 ├── app.py             # Textual TUI, state machine, keybindings
-├── audio.py           # Live microphone capture
+├── audio.py           # Recorder protocol, backend selection, PortAudio (non-macOS)
+├── avf_audio.py       # Native AVFoundation capture via helper process (macOS)
+├── mic_helper.swift   # AVFoundation helper source, compiled on demand
 ├── async_threads.py   # Daemon-thread helpers for blocking work
 ├── transcriber.py     # In-process MLX Qwen3-ASR transcription
 └── widgets/

@@ -1,8 +1,9 @@
-"""Mic capture for desktop and laptop live audio input."""
+"""Recorder protocol, backend selection, and PortAudio capture (non-macOS)."""
 
 import io
 import math
 import os
+import sys
 import threading
 import time
 import wave
@@ -41,12 +42,76 @@ class Recorder(Protocol):
         """Level meter value in range 0.0..1.0."""
 
 
+def encode_wav(audio_data: np.ndarray, sample_rate: int, channels: int) -> bytes:
+    """Encode numpy int16 audio data as WAV bytes."""
+    buf = io.BytesIO()
+    with wave.open(buf, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(audio_data.tobytes())
+    return buf.getvalue()
+
+
+def int16_level(chunk: np.ndarray) -> float:
+    """RMS amplitude of an int16 chunk normalized to 0.0-1.0."""
+    samples = chunk.astype(np.float64)
+    rms = np.sqrt(np.mean(samples**2))
+    if rms <= 1.0:
+        return 0.0
+    db = 20.0 * math.log10(rms / 32767.0)
+    return max(0.0, min(1.0, (db + 60.0) / 60.0))
+
+
+def resolve_input_device(explicit: int | str | None = None) -> int | str | None:
+    """Pick input device from argument or TNT_INPUT_DEVICE env var."""
+    if explicit is not None:
+        return explicit
+
+    env_value = os.environ.get("TNT_INPUT_DEVICE", "").strip()
+    if not env_value:
+        return None
+
+    if env_value.isdigit():
+        return int(env_value)
+    return env_value
+
+
 def create_recorder(
     sample_rate: int = 16000,
     channels: int = 1,
     dtype: str = "int16",
 ) -> Recorder:
-    """Build the live microphone recorder used on laptop targets."""
+    """Build the live microphone recorder.
+
+    On macOS the AVFoundation helper-process backend is mandatory: capture
+    runs in a child process the app can always kill, so a wedged audio stack
+    can never trap the microphone in-process the way PortAudio can. There is
+    deliberately no silent fallback — if the helper cannot be built, startup
+    fails with instructions rather than reviving the PortAudio failure mode.
+    Other platforms use PortAudio/sounddevice. TNT_CAPTURE_BACKEND=portaudio
+    forces the old backend for debugging only.
+    """
+    backend = os.environ.get("TNT_CAPTURE_BACKEND", "auto").strip().lower() or "auto"
+    if backend not in ("auto", "avfoundation", "portaudio"):
+        raise RuntimeError(
+            f"Unknown TNT_CAPTURE_BACKEND={backend!r}; "
+            "use 'auto', 'avfoundation', or 'portaudio'."
+        )
+
+    if sys.platform == "darwin":
+        if backend == "portaudio":
+            raise RuntimeError(
+                "PortAudio capture is not supported on macOS; "
+                "TNT uses native AVFoundation here."
+            )
+        from tnt.avf_audio import AVFRecorder
+
+        return AVFRecorder(sample_rate=sample_rate, channels=channels)
+
+    if backend == "avfoundation":
+        raise RuntimeError("TNT_CAPTURE_BACKEND=avfoundation requires macOS.")
+
     return MicRecorder(sample_rate=sample_rate, channels=channels, dtype=dtype)
 
 
@@ -191,14 +256,7 @@ class MicRecorder:
         if not self._recording:
             return
         chunk = indata.copy()
-
-        samples = chunk.astype(np.float64)
-        rms = np.sqrt(np.mean(samples**2))
-        if rms > 1.0:
-            db = 20.0 * math.log10(rms / 32767.0)
-            normalized = max(0.0, min(1.0, (db + 60.0) / 60.0))
-        else:
-            normalized = 0.0
+        normalized = int16_level(chunk)
 
         with self._lock:
             self._chunks.append(chunk)
@@ -206,26 +264,11 @@ class MicRecorder:
 
     def _encode_wav(self, audio_data: np.ndarray) -> bytes:
         """Encode numpy int16 audio data as WAV bytes."""
-        buf = io.BytesIO()
-        with wave.open(buf, "wb") as wf:
-            wf.setnchannels(self.channels)
-            wf.setsampwidth(2)
-            wf.setframerate(self.sample_rate)
-            wf.writeframes(audio_data.tobytes())
-        return buf.getvalue()
+        return encode_wav(audio_data, self.sample_rate, self.channels)
 
     def _resolve_device(self, explicit: int | str | None) -> int | str | None:
         """Pick input device from argument or TNT_INPUT_DEVICE env var."""
-        if explicit is not None:
-            return explicit
-
-        env_value = os.environ.get("TNT_INPUT_DEVICE", "").strip()
-        if not env_value:
-            return None
-
-        if env_value.isdigit():
-            return int(env_value)
-        return env_value
+        return resolve_input_device(explicit)
 
     def _build_mic_error(self, base_error: str) -> str:
         """Create a user-facing mic error with actionable setup hints."""

@@ -580,7 +580,14 @@ class TntApp(App):
 def main() -> None:
     # SIGINT/SIGTERM/SIGHUP are handled inside the app via the asyncio loop
     # (see TntApp._install_signal_handlers).
-    app = TntApp()
+    try:
+        app = TntApp()
+    except RuntimeError as exc:
+        # Capture backend setup failed (on macOS this is mandatory native
+        # AVFoundation — typically missing Xcode command line tools).
+        print(f"tnt: {exc}", file=sys.stderr)
+        sys.stderr.flush()
+        os._exit(1)
 
     exit_code = 0
     try:
