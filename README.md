@@ -70,7 +70,8 @@ it:
 This symlinks the checkpoint to `bin/qwen3-asr-mlx` and validates that the
 required files are present. Alternatively, convert the upstream
 [Qwen/Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) weights
-yourself with mlx-speech's `scripts/convert/qwen3_asr.py`.
+yourself with [mlx-speech](https://github.com/appautomaton/mlx-speech)'s
+`scripts/convert/qwen3_asr.py`.
 
 ## Configuration
 
@@ -116,7 +117,8 @@ bin/
 ## Acknowledgements
 
 - [Qwen3-ASR](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) — the underlying speech model by the Qwen team ([converted MLX checkpoint](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx))
-- [mlx-speech](https://github.com/appautomaton/mlx-speech) — MLX-native speech runtime for Apple Silicon
+- [mlx-speech](https://github.com/appautomaton/mlx-speech) — MLX-native speech runtime for Apple Silicon ([PyPI](https://pypi.org/project/mlx-speech/))
+- More converted checkpoints on [Hugging Face: appautomaton](https://huggingface.co/appautomaton)
 - [MLX](https://github.com/ml-explore/mlx) — Apple's array framework for Apple Silicon
 - [Textual](https://github.com/Textualize/textual) — the TUI framework
 
