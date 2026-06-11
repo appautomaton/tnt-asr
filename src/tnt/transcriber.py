@@ -48,12 +48,10 @@ class MlxQwenTranscriber:
     _model_cache: dict[Path, object] = {}
 
     def __init__(self, model_dir: str | None = None) -> None:
-        raw_dir = (
-            model_dir
-            or os.environ.get("TNT_MLX_MODEL", "").strip()
-            or "bin/qwen3-asr-mlx"
+        raw_dir = model_dir or os.environ.get("TNT_MLX_MODEL", "").strip()
+        self.model_dir = (
+            Path(raw_dir).resolve() if raw_dir else self._default_model_dir()
         )
-        self.model_dir = Path(raw_dir).resolve()
         self.language = os.environ.get("TNT_MLX_LANGUAGE", "").strip() or None
         if self.language and self.language.lower() == "auto":
             self.language = None
@@ -64,6 +62,19 @@ class MlxQwenTranscriber:
     def model_label(self) -> str:
         return MODEL_LABEL
 
+    @staticmethod
+    def _default_model_dir() -> Path:
+        """Repo-local checkpoint link when present, else the user-level one.
+
+        The cwd-relative bin/ link only exists when running from a checkout;
+        pip-installed runs from anywhere fall through to the per-user path
+        that bootstrap-mlx-asr.sh also links.
+        """
+        repo_local = Path("bin/qwen3-asr-mlx")
+        if repo_local.exists():
+            return repo_local.resolve()
+        return Path.home() / ".local" / "share" / "tnt" / "qwen3-asr-mlx"
+
     def _validate(self) -> None:
         if sys.platform != "darwin" or platform.machine().lower() != "arm64":
             raise RuntimeError("TNT requires an Apple Silicon Mac for MLX inference.")
@@ -72,7 +83,9 @@ class MlxQwenTranscriber:
         if not self.model_dir.exists():
             raise FileNotFoundError(
                 f"MLX model directory not found at {self.model_dir}\n"
-                "Run ./bootstrap-mlx-asr.sh <path-to-Qwen3-ASR-1.7B-MLX-BF16>."
+                "Set TNT_MLX_MODEL to a converted Qwen3-ASR-1.7B MLX checkpoint "
+                "(huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx), or run "
+                "./bootstrap-mlx-asr.sh <checkpoint-dir> from the repo."
             )
         missing = [
             name for name in self.REQUIRED_MODEL_FILES if not (self.model_dir / name).exists()

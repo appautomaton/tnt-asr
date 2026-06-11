@@ -24,6 +24,37 @@ wheels = [
 ]
 
 [[package]]
+name = "automaton-tnt"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
+    { name = "numpy" },
+    { name = "sounddevice", marker = "sys_platform != 'darwin'" },
+    { name = "textual" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "pytest" },
+    { name = "ruff" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.4.1" },
+    { name = "numpy", specifier = ">=2.0" },
+    { name = "sounddevice", marker = "sys_platform != 'darwin'", specifier = ">=0.5" },
+    { name = "textual", specifier = ">=3.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "pytest", specifier = ">=8.0" },
+    { name = "ruff", specifier = ">=0.11" },
+]
+
+[[package]]
 name = "certifi"
 version = "2026.5.20"
 source = { registry = "https://pypi.org/simple" }
@@ -516,37 +547,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/9f/38/7d169a765993efde5095c70a668bf4f5831bb7ac099e932f2783e9b71abf/textual-7.5.0.tar.gz", hash = "sha256:c730cba1e3d704e8f1ca915b6a3af01451e3bca380114baacf6abf87e9dac8b6", size = 1592319, upload-time = "2026-01-30T13:46:39.881Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/9c/78/96ddb99933e11d91bc6e05edae23d2687e44213066bcbaca338898c73c47/textual-7.5.0-py3-none-any.whl", hash = "sha256:849dfee9d705eab3b2d07b33152b7bd74fb1f5056e002873cc448bce500c6374", size = 718164, upload-time = "2026-01-30T13:46:37.635Z" },
-]
-
-[[package]]
-name = "tnt"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'" },
-    { name = "numpy" },
-    { name = "sounddevice", marker = "sys_platform != 'darwin'" },
-    { name = "textual" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "pytest" },
-    { name = "ruff" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.4.1" },
-    { name = "numpy", specifier = ">=2.0" },
-    { name = "sounddevice", marker = "sys_platform != 'darwin'", specifier = ">=0.5" },
-    { name = "textual", specifier = ">=3.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "pytest", specifier = ">=8.0" },
-    { name = "ruff", specifier = ">=0.11" },
 ]
 
 [[package]]

@@ -29,7 +29,8 @@ TNT is a terminal voice-to-text TUI:
     installed, imported, or selectable on macOS — `TNT_CAPTURE_BACKEND=portaudio`
     is rejected there.
 - env overrides:
-  - `TNT_MLX_MODEL=<path-to-converted-MLX-checkpoint>` (default `bin/qwen3-asr-mlx`)
+  - `TNT_MLX_MODEL=<path-to-converted-MLX-checkpoint>` (default `bin/qwen3-asr-mlx`
+    when it exists, else `~/.local/share/tnt/qwen3-asr-mlx`; bootstrap links both)
   - `TNT_MLX_LANGUAGE=Chinese | English | auto` (default auto; use `Chinese` for mixed zh/en speech — auto may translate Chinese segments to English)
   - `TNT_INPUT_DEVICE=<index-or-name>`
   - `TNT_CAPTURE_BACKEND=auto | avfoundation | portaudio` (default auto)

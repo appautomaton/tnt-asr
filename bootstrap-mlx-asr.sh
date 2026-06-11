@@ -35,3 +35,10 @@ done
 SRC_ABS="$(cd "$SRC" && pwd)"
 ln -sfn "$SRC_ABS" "$DEST"
 echo "Linked $DEST -> $SRC_ABS"
+
+# Also link the per-user location so a pip/uv-tool-installed tnt finds the
+# model when run outside this checkout.
+USER_DEST="$HOME/.local/share/tnt/qwen3-asr-mlx"
+mkdir -p "$(dirname "$USER_DEST")"
+ln -sfn "$SRC_ABS" "$USER_DEST"
+echo "Linked $USER_DEST -> $SRC_ABS"

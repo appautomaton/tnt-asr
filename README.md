@@ -45,6 +45,16 @@ uv sync
 uv run tnt
 ```
 
+Or install from PyPI ([`automaton-tnt`](https://pypi.org/project/automaton-tnt/)):
+
+```bash
+uv tool install automaton-tnt
+TNT_MLX_MODEL=/path/to/qwen3-asr-1.7b-bf16-mlx tnt
+```
+
+(Instead of exporting `TNT_MLX_MODEL`, you can symlink the checkpoint at
+`~/.local/share/tnt/qwen3-asr-mlx`.)
+
 ### Model checkpoint
 
 TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint (BF16). A ready-to-use
@@ -66,7 +76,7 @@ yourself with mlx-speech's `scripts/convert/qwen3_asr.py`.
 
 | Environment variable | Default | Description |
 |----------------------|---------|-------------|
-| `TNT_MLX_MODEL` | `bin/qwen3-asr-mlx` | Path to the converted MLX checkpoint |
+| `TNT_MLX_MODEL` | `bin/qwen3-asr-mlx`, else `~/.local/share/tnt/qwen3-asr-mlx` | Path to the converted MLX checkpoint |
 | `TNT_MLX_LANGUAGE` | `auto` | `Chinese`, `English`, or `auto`. Use `Chinese` to keep mixed Chinese/English speech from being translated to English |
 | `TNT_INPUT_DEVICE` | system default | Microphone, by index or name |
 | `TNT_CAPTURE_BACKEND` | `auto` | macOS always uses native AVFoundation (needs the Xcode command line tools: `xcode-select --install`); other platforms use PortAudio. `portaudio` is rejected on macOS |
