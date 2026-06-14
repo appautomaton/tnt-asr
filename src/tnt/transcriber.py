@@ -121,6 +121,8 @@ class MlxQwenTranscriber:
         del timeout  # enforced by the async wrapper; generate() is not killable
         if self._abandoned:
             raise asyncio.CancelledError()
+        import mlx.core as mx  # local: keep transcriber importable without MLX
+
         audio, sample_rate = _wav_bytes_to_float32(wav_bytes)
         model = self._load_model_locked()
         # Serialize generations: an abandoned (cancelled/timed-out) generate
@@ -128,9 +130,22 @@ class MlxQwenTranscriber:
         with self._model_lock:
             if self._abandoned:
                 raise asyncio.CancelledError()
-            result = model.generate(
-                audio, sample_rate=sample_rate, language=self.language
-            )
+            try:
+                result = model.generate(
+                    audio, sample_rate=sample_rate, language=self.language
+                )
+            finally:
+                # Release MLX's Metal buffer cache. MLX pools freed GPU buffers
+                # (per size class) up to ~device memory and never returns them to
+                # the OS on its own; each transcription's scratch — chiefly the
+                # prefill logits [1, prompt_len, vocab] and the per-call KV cache,
+                # both scaling with recording length — leaves ever-larger buffers
+                # cached. Over a long session of varied/long recordings that
+                # ratchets RSS into the tens of GB. The resident weights are live
+                # ("active") memory, not cache, so this frees only reusable scratch
+                # and leaves the model loaded. Runs inside the lock (no concurrent
+                # generate) and in finally so a context-overflow error still frees.
+                mx.clear_cache()
         if self._abandoned:
             raise asyncio.CancelledError()
         return result.text.strip()

@@ -113,11 +113,15 @@ def test_mlx_transcribe_async_returns_text(tmp_path: Path, monkeypatch) -> None:
 def test_mlx_transcribe_async_timeout_abandons_result(tmp_path: Path, monkeypatch) -> None:
     transcriber = _make_transcriber(tmp_path, monkeypatch)
     started = threading.Event()
+    drained = threading.Event()
+    # clear_cache runs in _transcribe_sync's finally; use it to know the
+    # abandoned worker has fully drained so it cannot outlive this test.
+    monkeypatch.setattr("mlx.core.clear_cache", drained.set)
 
     class SlowModel:
         def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
             started.set()
-            time.sleep(1.0)
+            time.sleep(0.3)
             return SimpleNamespace(text="late", language="English")
 
     MlxQwenTranscriber._model_cache[transcriber.model_dir] = SlowModel()
@@ -125,10 +129,13 @@ def test_mlx_transcribe_async_timeout_abandons_result(tmp_path: Path, monkeypatc
         wav = _make_wav_bytes(np.zeros(1600, dtype=np.int16))
         with pytest.raises(TranscriptionTimeoutError):
             asyncio.run(transcriber.transcribe_async(wav, timeout=0.05))
+        assert started.wait(timeout=2.0)
+        # Drain the abandoned generation (it is not killable) before returning,
+        # so its global clear_cache() cannot land inside a later test.
+        assert drained.wait(timeout=2.0)
     finally:
         MlxQwenTranscriber._model_cache.pop(transcriber.model_dir, None)
 
-    assert started.wait(timeout=2.0)
     assert transcriber._abandoned is True
 
 
@@ -138,3 +145,51 @@ def test_mlx_abandon_cancels_pending_transcription(tmp_path: Path, monkeypatch) 
     wav = _make_wav_bytes(np.zeros(16, dtype=np.int16))
     with pytest.raises(asyncio.CancelledError):
         transcriber._transcribe_sync(wav, timeout=1)
+
+
+def test_mlx_transcribe_clears_buffer_cache_after_generate(tmp_path: Path, monkeypatch) -> None:
+    """Each generation must release MLX's Metal buffer cache, after generate().
+
+    Without this the cache pools freed GPU buffers up to ~device memory and RSS
+    ratchets into the tens of GB over a long session.
+    """
+    transcriber = _make_transcriber(tmp_path, monkeypatch)
+    events: list[str] = []
+    monkeypatch.setattr("mlx.core.clear_cache", lambda: events.append("clear"))
+
+    class FakeModel:
+        def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
+            events.append("generate")
+            return SimpleNamespace(text=" hi ", language="English")
+
+    MlxQwenTranscriber._model_cache[transcriber.model_dir] = FakeModel()
+    try:
+        wav = _make_wav_bytes(np.zeros(1600, dtype=np.int16))
+        text = transcriber._transcribe_sync(wav, timeout=5)
+    finally:
+        MlxQwenTranscriber._model_cache.pop(transcriber.model_dir, None)
+
+    assert text == "hi"
+    assert events == ["generate", "clear"]
+
+
+def test_mlx_transcribe_clears_buffer_cache_when_generate_raises(tmp_path: Path, monkeypatch) -> None:
+    """The cache must still be released when generate() fails (e.g. context overflow)."""
+    transcriber = _make_transcriber(tmp_path, monkeypatch)
+    events: list[str] = []
+    monkeypatch.setattr("mlx.core.clear_cache", lambda: events.append("clear"))
+
+    class ExplodingModel:
+        def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
+            events.append("generate")
+            raise RuntimeError("context overflow")
+
+    MlxQwenTranscriber._model_cache[transcriber.model_dir] = ExplodingModel()
+    try:
+        wav = _make_wav_bytes(np.zeros(1600, dtype=np.int16))
+        with pytest.raises(RuntimeError, match="context overflow"):
+            transcriber._transcribe_sync(wav, timeout=5)
+    finally:
+        MlxQwenTranscriber._model_cache.pop(transcriber.model_dir, None)
+
+    assert events == ["generate", "clear"]
