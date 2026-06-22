@@ -14,7 +14,7 @@ import numpy as np
 
 from tnt.async_threads import start_daemon_thread
 
-MODEL_LABEL = "qwen3-asr-1.7b-mlx"
+MODEL_LABEL = "qwen3-asr-1.7b-int8-mlx"
 DEFAULT_TIMEOUT_SECONDS = 60.0
 
 

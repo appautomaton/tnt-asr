@@ -11,7 +11,7 @@ TNT is a terminal voice-to-text TUI:
 - tap `Space` again to stop and transcribe
 - hold `Space` to record until release
 - `Space` during transcription cancels it
-- ASR: Qwen3-ASR-1.7B (BF16) in-process on the Apple GPU via `mlx-speech`
+- ASR: Qwen3-ASR-1.7B (int8) in-process on the Apple GPU via `mlx-speech`
 - the model loads once (background warmup at startup) and stays resident
 
 ## Platform
@@ -45,8 +45,8 @@ TNT is a terminal voice-to-text TUI:
 - Use `uv` only (`uv sync`, `uv run`, `uv add`).
 - Keep runtime dependencies minimal (`textual`, `numpy`, `mlx-speech` + stdlib;
   `sounddevice` on non-macOS only).
-- `mlx-speech` is our own package, installed from PyPI (`>=0.4.1`). Its source
-  lives at `/Users/ac/dev/ai/genai/mlx-voice`; keep the projects decoupled —
+- `mlx-speech` is our own package, installed from PyPI (`>=0.4.3`). Its source
+  lives at `/Users/ac/dev/ai/genai/mlx-speech`; keep the projects decoupled —
   do not reintroduce a `[tool.uv.sources]` path override outside of temporary
   local debugging.
 - Keep blocking work off the UI path (use async/worker patterns).
@@ -81,11 +81,14 @@ bin/
 
 ## Bootstrap and artifacts
 
-- `./bootstrap-mlx-asr.sh /path/to/Qwen3-ASR-1.7B-MLX-BF16`
+- `./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-int8-mlx`
   - Symlinks a converted MLX checkpoint to `bin/qwen3-asr-mlx`
-  - BF16 is currently the only supported weight format (mlx-speech defers quantization)
-  - Published checkpoint: `appautomaton/qwen3-asr-1.7b-bf16-mlx` on Hugging Face
-  - Or convert upstream weights with mlx-voice's `scripts/convert/qwen3_asr.py`
+  - int8 (affine, group_size 64) is the runtime default — ~2.5 GB weights, ~half
+    of BF16. mlx-speech reads the quant from the checkpoint's `config.json`, so
+    BF16 and mxfp8 builds also load with no code change; just relink to switch.
+  - Published checkpoint: `appautomaton/qwen3-asr-1.7b-int8-mlx` on Hugging Face
+  - Or convert upstream weights with mlx-speech's `scripts/convert/qwen3_asr.py`
+    (defaults to `--quant int8`)
 
 ## Audio contract
 
