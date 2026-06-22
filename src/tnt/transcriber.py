@@ -84,7 +84,7 @@ class MlxQwenTranscriber:
             raise FileNotFoundError(
                 f"MLX model directory not found at {self.model_dir}\n"
                 "Set TNT_MLX_MODEL to a converted Qwen3-ASR-1.7B MLX checkpoint "
-                "(huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx), or run "
+                "(huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx), or run "
                 "./bootstrap-mlx-asr.sh <checkpoint-dir> from the repo."
             )
         missing = [

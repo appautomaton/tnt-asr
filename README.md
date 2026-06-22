@@ -6,7 +6,7 @@
 
 Terminal voice-to-text. Tap <kbd>Space</kbd>, speak, tap <kbd>Space</kbd> — your words land in the transcript and on the clipboard.
 
-Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.com/appautomaton/mlx-speech): the model loads once, stays resident, and transcribes a short take in about a second. Fully local — no cloud, no runtime network calls. The microphone is captured natively through AVFoundation by a small Swift helper process, so a misbehaving audio stack can never trap the mic: TNT just kills the helper and macOS releases it.
+Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.com/appautomaton/mlx-speech) as an 8-bit (int8) quantized checkpoint — ~2.5 GB resident: the model loads once, stays resident, and transcribes a short take in a fraction of a second. Fully local — no cloud, no runtime network calls. The microphone is captured natively through AVFoundation by a small Swift helper process, so a misbehaving audio stack can never trap the mic: TNT just kills the helper and macOS releases it.
 
 > [!NOTE]
 > Using Termux on Android? Use the preserved
@@ -22,6 +22,7 @@ Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.
 ## Features
 
 - **In-process GPU inference** — pure MLX, no PyTorch
+- **8-bit quantized** — int8 weights (~2.5 GB), about half the memory of BF16 with a faster decode
 - **Resident model** — loads once in the background at startup; every take is warm
 - **Native mic capture** — AVFoundation via an isolated Swift helper process; the mic can always be reclaimed
 - **English, Chinese, and mixed speech** — language auto-detected, or forced via env var
@@ -41,7 +42,7 @@ Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.
 git clone https://github.com/appautomaton/tnt-asr.git
 cd tnt-asr
 uv sync
-./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-bf16-mlx
+./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-int8-mlx
 uv run tnt
 ```
 
@@ -49,7 +50,7 @@ Or install from PyPI ([`automaton-tnt`](https://pypi.org/project/automaton-tnt/)
 
 ```bash
 uv tool install automaton-tnt
-TNT_MLX_MODEL=/path/to/qwen3-asr-1.7b-bf16-mlx tnt
+TNT_MLX_MODEL=/path/to/qwen3-asr-1.7b-int8-mlx tnt
 ```
 
 (Instead of exporting `TNT_MLX_MODEL`, you can symlink the checkpoint at
@@ -57,18 +58,20 @@ TNT_MLX_MODEL=/path/to/qwen3-asr-1.7b-bf16-mlx tnt
 
 ### Model checkpoint
 
-TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint (BF16). A ready-to-use
-one is published at
-[appautomaton/qwen3-asr-1.7b-bf16-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx)
-(~4.7 GB) — download it however you prefer, then point the bootstrap script at
+TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint. A ready-to-use int8
+build is published at
+[appautomaton/qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx)
+(~2.5 GB) — download it however you prefer, then point the bootstrap script at
 it:
 
 ```bash
-./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-bf16-mlx
+./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-int8-mlx
 ```
 
 This symlinks the checkpoint to `bin/qwen3-asr-mlx` and validates that the
-required files are present. Alternatively, convert the upstream
+required files are present. BF16 and mxfp8 builds work too — mlx-speech reads
+the quantization from the checkpoint's `config.json`, so switching is just a
+relink. Alternatively, convert the upstream
 [Qwen/Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) weights
 yourself with [mlx-speech](https://github.com/appautomaton/mlx-speech)'s
 `scripts/convert/qwen3_asr.py`.
@@ -117,7 +120,7 @@ bin/
 ## Related projects
 
 - [mlx-speech](https://github.com/appautomaton/mlx-speech) — our MLX-native speech runtime that powers TNT ([PyPI](https://pypi.org/project/mlx-speech/))
-- [qwen3-asr-1.7b-bf16-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx) — our BF16 MLX checkpoint that TNT runs (converted from Qwen3-ASR-1.7B); more on [Hugging Face](https://huggingface.co/appautomaton)
+- [qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx) — our int8 MLX checkpoint that TNT runs (converted from Qwen3-ASR-1.7B); more on [Hugging Face](https://huggingface.co/appautomaton)
 
 ## License
 

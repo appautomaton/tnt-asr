@@ -26,7 +26,7 @@ Homepage = "https://github.com/appautomaton/tnt-asr"
 Repository = "https://github.com/appautomaton/tnt-asr"
 Issues = "https://github.com/appautomaton/tnt-asr/issues"
 "Speech runtime (mlx-speech)" = "https://github.com/appautomaton/mlx-speech"
-"Model checkpoint" = "https://huggingface.co/appautomaton/qwen3-asr-1.7b-bf16-mlx"
+"Model checkpoint" = "https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx"
 "Hugging Face" = "https://huggingface.co/appautomaton"
 
 [project.scripts]
