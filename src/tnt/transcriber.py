@@ -82,10 +82,11 @@ class MlxQwenTranscriber:
             raise RuntimeError("mlx-speech is not installed. Run: uv sync")
         if not self.model_dir.exists():
             raise FileNotFoundError(
-                f"MLX model directory not found at {self.model_dir}\n"
-                "Set TNT_MLX_MODEL to a converted Qwen3-ASR-1.7B MLX checkpoint "
-                "(huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx), or run "
-                "./bootstrap-mlx-asr.sh <checkpoint-dir> from the repo."
+                f"MLX model not found at {self.model_dir}\n"
+                "Fetch it with: ./bootstrap-mlx-asr.sh  (downloads the int8 "
+                "Qwen3-ASR checkpoint from Hugging Face and links it). If you "
+                "already have a checkpoint, pass its path to that script or set "
+                "TNT_MLX_MODEL to it."
             )
         missing = [
             name for name in self.REQUIRED_MODEL_FILES if not (self.model_dir / name).exists()

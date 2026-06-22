@@ -42,7 +42,7 @@ Qwen3-ASR-1.7B runs in-process on the Apple GPU via [mlx-speech](https://github.
 git clone https://github.com/appautomaton/tnt-asr.git
 cd tnt-asr
 uv sync
-./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-int8-mlx
+./bootstrap-mlx-asr.sh        # downloads + links the int8 checkpoint (~2.5 GB, cached by Hugging Face)
 uv run tnt
 ```
 
@@ -59,19 +59,23 @@ TNT_MLX_MODEL=/path/to/qwen3-asr-1.7b-int8-mlx tnt
 ### Model checkpoint
 
 TNT expects a converted Qwen3-ASR-1.7B MLX checkpoint. A ready-to-use int8
-build is published at
-[appautomaton/qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx)
-(~2.5 GB) — download it however you prefer, then point the bootstrap script at
-it:
+build (~2.5 GB) is published at
+[appautomaton/qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx).
+The bootstrap script takes three forms:
 
 ```bash
-./bootstrap-mlx-asr.sh /path/to/qwen3-asr-1.7b-int8-mlx
+./bootstrap-mlx-asr.sh                       # download the int8 build from Hugging Face, then link it
+./bootstrap-mlx-asr.sh <hf-repo-id>          # download a specific Hugging Face repo
+./bootstrap-mlx-asr.sh /path/to/checkpoint   # link a checkpoint you already have (no download)
 ```
 
-This symlinks the checkpoint to `bin/qwen3-asr-mlx` and validates that the
-required files are present. BF16 and mxfp8 builds work too — mlx-speech reads
-the quantization from the checkpoint's `config.json`, so switching is just a
-relink. Alternatively, convert the upstream
+Downloads use `huggingface_hub` (already installed via mlx-speech) and land in
+the shared Hugging Face cache (`~/.cache/huggingface`); the script symlinks
+`bin/qwen3-asr-mlx` to the cached snapshot. It is idempotent — if the model is
+already cached, or you pass a local path, nothing is re-downloaded, so you
+never keep two copies of the 2.5 GB weights. BF16 and mxfp8 builds work too —
+mlx-speech reads the quantization from the checkpoint's `config.json`, so
+switching is just a relink. Alternatively, convert the upstream
 [Qwen/Qwen3-ASR-1.7B](https://huggingface.co/Qwen/Qwen3-ASR-1.7B) weights
 yourself with [mlx-speech](https://github.com/appautomaton/mlx-speech)'s
 `scripts/convert/qwen3_asr.py`.
