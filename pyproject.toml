@@ -18,7 +18,7 @@ dependencies = [
     "numpy>=2.0",
     "sounddevice>=0.5; sys_platform != 'darwin'",
     "textual>=3.0",
-    "mlx-speech>=0.4.1; sys_platform == 'darwin' and platform_machine == 'arm64'",
+    "mlx-speech>=0.4.3; sys_platform == 'darwin' and platform_machine == 'arm64'",
 ]
 
 [project.urls]

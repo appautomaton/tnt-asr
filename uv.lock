@@ -42,7 +42,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.4.1" },
+    { name = "mlx-speech", marker = "platform_machine == 'arm64' and sys_platform == 'darwin'", specifier = ">=0.4.3" },
     { name = "numpy", specifier = ">=2.0" },
     { name = "sounddevice", marker = "sys_platform != 'darwin'", specifier = ">=0.5" },
     { name = "textual", specifier = ">=3.0" },
@@ -309,7 +309,7 @@ wheels = [
 
 [[package]]
 name = "mlx-speech"
-version = "0.4.1"
+version = "0.4.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "huggingface-hub" },
@@ -319,9 +319,9 @@ dependencies = [
     { name = "soundfile" },
     { name = "tokenizers" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/f0/cb/98f2ccb65c47515cf3ddb7483a21d3d7febcd6e8cb97f313cef76fff1b23/mlx_speech-0.4.1.tar.gz", hash = "sha256:6ae492afd3259edb923f64535f786825cfd81df6552ab4cfe9747c26f8c3841c", size = 289792, upload-time = "2026-06-09T21:47:15.12Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/f2/5eeb58c13092dae73e6ec7b4c0a5000c3079dbde467a18d97fbe76fe3f0e/mlx_speech-0.4.3.tar.gz", hash = "sha256:949b4090d150a86bc1aea7724c93de5b08fe4caca20d83465ed4d8a1d753f0ed", size = 308682, upload-time = "2026-06-22T16:57:13.576Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ee/7a/b0f8112d3709fb65e881d5f0c5e4bb8417c2f507a1b6cd5307617ff1552d/mlx_speech-0.4.1-py3-none-any.whl", hash = "sha256:b8474b3f23674359e77126ad58c7f6c6e522cf0659e5a65731a9dc129a302303", size = 392946, upload-time = "2026-06-09T21:47:13.818Z" },
+    { url = "https://files.pythonhosted.org/packages/81/65/89c37a3f5675da23c5f9fa141f13c65fc649cb95c574a48589c4316703e9/mlx_speech-0.4.3-py3-none-any.whl", hash = "sha256:58fdc958243e352a880acf2841843d1e0a460b082a8542acf887f07c18a495ef", size = 415852, upload-time = "2026-06-22T16:57:12.064Z" },
 ]
 
 [[package]]
