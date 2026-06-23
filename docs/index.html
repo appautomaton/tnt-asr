@@ -56,11 +56,12 @@
   }
 
   *{box-sizing:border-box}
-  html{scroll-behavior:smooth}
+  html{scroll-behavior:smooth;overflow-x:clip}
   body{
     margin:0;background:var(--void);color:var(--ink);
     font-family:var(--mono);font-size:16px;line-height:1.6;
-    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;overflow-x:hidden;
+    -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+    overflow-x:clip;
   }
 
   /* synthwave atmosphere: neon radial washes + faint grid + grain */
@@ -219,17 +220,41 @@
   .step h3{font-family:var(--display);font-weight:600;font-size:19px;margin:0 0 8px}
   .step p{color:var(--muted-2);font-size:14px;margin:0;opacity:.85}
 
-  /* features */
-  .feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px}
-  @media(max-width:920px){.feat-grid{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:560px){.feat-grid{grid-template-columns:1fr}}
-  .card{border:1px solid var(--line);border-radius:15px;padding:26px 24px;background:rgba(255,255,255,.012);transition:.3s;position:relative;overflow:hidden}
+  /* features — bento grid */
+  .bento{display:grid;grid-template-columns:repeat(4,1fr);grid-auto-rows:minmax(150px,auto);gap:16px}
+  .card{border:1px solid var(--line);border-radius:16px;padding:26px 24px;background:rgba(255,255,255,.012);transition:.3s;position:relative;overflow:hidden;display:flex;flex-direction:column}
   .card:hover{border-color:rgba(122,252,255,.32);background:rgba(122,252,255,.022)}
-  .card .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;margin-bottom:18px;background:linear-gradient(180deg, rgba(155,77,255,.18), rgba(255,79,216,.08));border:1px solid var(--line);font-size:19px}
+  .card .ico{width:42px;height:42px;border-radius:11px;display:grid;place-items:center;margin-bottom:18px;background:linear-gradient(180deg, rgba(155,77,255,.18), rgba(255,79,216,.08));border:1px solid var(--line);font-size:19px;flex:none}
   .card h3{font-family:var(--display);font-weight:600;font-size:17px;margin:0 0 9px;letter-spacing:-.01em}
   .card p{color:var(--muted-2);font-size:13.5px;margin:0;line-height:1.6;opacity:.88}
-  .card.span2{grid-column:span 2}
-  @media(max-width:560px){.card.span2{grid-column:span 1}}
+
+  /* bento tiles */
+  .b-a{grid-column:span 2;grid-row:span 2}
+  .b-b{grid-column:span 2}
+  .b-e{grid-column:span 2}
+  .b-f{grid-column:span 2}
+
+  /* featured hero tile */
+  .b-a{background:radial-gradient(440px 280px at 15% 0%, rgba(155,77,255,.14), transparent 65%), rgba(255,255,255,.012)}
+  .b-a .ico{width:52px;height:52px;font-size:24px;border-radius:13px}
+  .b-a h3{font-size:23px;margin-bottom:12px}
+  .b-a p{font-size:14.5px;max-width:44ch}
+  .b-a .tags{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap;padding-top:22px}
+  .b-a .tags span{font-family:var(--tech);font-size:9.5px;letter-spacing:.03em;text-transform:uppercase;color:var(--muted-2);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+
+  /* oscilloscope tile with live mini scope */
+  .b-b{justify-content:flex-start}
+  .mini-scope{margin-top:auto;padding-top:16px;font-family:var(--mono);font-size:12px;line-height:1.05;white-space:pre;letter-spacing:0}
+  .mini-scope .scrow{display:block;height:13px}
+
+  @media(max-width:900px){
+    .bento{grid-template-columns:repeat(2,1fr);grid-auto-rows:minmax(140px,auto)}
+    .b-a{grid-row:span 1}
+  }
+  @media(max-width:560px){
+    .bento{grid-template-columns:1fr;grid-auto-rows:auto}
+    .b-a,.b-b,.b-e,.b-f{grid-column:span 1}
+  }
 
   /* install */
   .install-wrap{display:grid;grid-template-columns:.82fr 1.18fr;gap:46px;align-items:start}
@@ -422,13 +447,23 @@
       <h2>Fast where it counts. Honest about the rest.</h2>
       <p>Pure MLX inference on the Apple GPU, a microphone that can always be reclaimed, and a TUI that reshapes itself to your terminal.</p>
     </div>
-    <div class="feat-grid">
-      <div class="card span2 reveal"><div class="ico">⚡</div><h3>In-process GPU inference</h3><p>Pure MLX — no PyTorch, no CUDA, no subprocess for the model. Weights are int8 (~2.5 GB, about half of BF16) with a faster decode, loaded once in a background warmup so every single take is warm.</p></div>
-      <div class="card reveal"><div class="ico">🌐</div><h3>Zero network at runtime</h3><p>Everything runs on your machine. No cloud round-trips, no telemetry, nothing leaves the laptop.</p></div>
-      <div class="card reveal"><div class="ico">🎙️</div><h3>Mic that can't get stuck</h3><p>Native AVFoundation capture in an isolated Swift helper process. A wedged audio stack? TNT kills the helper and macOS releases the mic — every time.</p></div>
-      <div class="card reveal"><div class="ico">语</div><h3>English, Chinese & mixed</h3><p>Language auto-detected, or force it via env var — keep mixed zh/en speech from being translated away.</p></div>
-      <div class="card reveal"><div class="ico">⠿</div><h3>Live braille oscilloscope</h3><p>Real audio levels render as a braille waveform while you record, so you always know the mic is hearing you.</p></div>
-      <div class="card span2 reveal"><div class="ico">▦</div><h3>Clipboard-first, responsive TUI</h3><p>New transcriptions auto-copy; click any past entry to copy it again. The layout uses a side-rail on wide terminals and stacks on narrow ones — it fits whatever window you've got.</p></div>
+    <div class="bento">
+      <div class="card b-a reveal">
+        <div class="ico">⚡</div>
+        <h3>In-process GPU inference</h3>
+        <p>Pure MLX — no PyTorch, no CUDA, no subprocess for the model. Weights are int8 (~2.5 GB, about half of BF16) with a faster decode, loaded once in a background warmup so every single take is warm.</p>
+        <div class="tags"><span>MLX</span><span>int8</span><span>~2.5 GB</span><span>resident</span><span>Apple GPU</span></div>
+      </div>
+      <div class="card b-b reveal">
+        <div class="ico">⠿</div>
+        <h3>Live braille oscilloscope</h3>
+        <p>Real audio levels render as a braille waveform while you record, so you always know the mic is hearing you.</p>
+        <div class="mini-scope" id="scope2" aria-hidden="true"></div>
+      </div>
+      <div class="card b-c reveal"><div class="ico">🌐</div><h3>Zero network at runtime</h3><p>Everything runs on your machine. No cloud round-trips, no telemetry, nothing leaves the laptop.</p></div>
+      <div class="card b-d reveal"><div class="ico">🎙️</div><h3>Mic that can't get stuck</h3><p>Native AVFoundation capture in an isolated Swift helper process. A wedged audio stack? TNT kills the helper and macOS releases the mic.</p></div>
+      <div class="card b-e reveal"><div class="ico">语</div><h3>English, Chinese &amp; mixed</h3><p>Language auto-detected, or force it via env var — keep mixed zh/en speech from being translated away.</p></div>
+      <div class="card b-f reveal"><div class="ico">▦</div><h3>Clipboard-first, responsive TUI</h3><p>New transcriptions auto-copy; click any past entry to copy it again. The layout uses a side-rail on wide terminals and stacks on narrow ones — it fits whatever window you've got.</p></div>
     </div>
   </div>
 </section>
@@ -576,9 +611,6 @@
   document.getElementById("marquee").innerHTML=html;
 
   /* ---- faithful braille oscilloscope (port of widgets/status.py _render_waveform) ---- */
-  var scope=document.getElementById("scope");
-  var WIDTH=11, ROWS=6;                 // 11 cells wide, 6 cells tall  -> 22 dot cols x 24 dot rows
-  var DOT_COLS=WIDTH*2, DOT_ROWS=ROWS*4, CENTER=DOT_ROWS>>1, MAX_HALF=CENTER-1;
   var DOT_BITS=[[0x01,0x02,0x04,0x40],[0x08,0x10,0x20,0x80]];
   var EDGE_DIM=0.35, SHIMMER=0.10;
   // recording gradient stops (from _GRADIENTS["recording"])
@@ -590,43 +622,52 @@
     var r=((a[0]+(b[0]-a[0])*frac)*bright)|0, g=((a[1]+(b[1]-a[1])*frac)*bright)|0, bl=((a[2]+(b[2]-a[2])*frac)*bright)|0;
     return "rgb("+r+","+g+","+bl+")";
   }
-  var levels=new Array(DOT_COLS).fill(0.1);   // scrolling level history per dot column
-  var tick=0;
-  function pushSample(){
-    // synthesize a lively "speech-like" level: layered sines + jitter
-    var s=Math.abs(Math.sin(tick*0.30))*0.5 + Math.abs(Math.sin(tick*0.13+1.1))*0.35;
-    var j=(Math.sin(tick*12.9898)*43758.5453); j=j-Math.floor(j);
-    var lvl=Math.max(0.05,Math.min(1, s*(0.55+0.5*j)));
-    levels.push(lvl); if(levels.length>DOT_COLS) levels.shift();
-  }
-  function renderScope(){
-    var halves=new Array(DOT_COLS);
-    for(var x=0;x<DOT_COLS;x++){ halves[x]=Math.max(1, Math.round((levels[x]||0.1)*MAX_HALF)); }
-    var out="";
-    for(var row=0;row<ROWS;row++){
-      var rowMid=row*4+2, edge=Math.abs(rowMid-CENTER)/Math.max(CENTER,1), bright=1-EDGE_DIM*edge;
-      var line="";
-      for(var col=0;col<WIDTH;col++){
-        var bits=0, peak=0;
-        for(var sc=0;sc<2;sc++){
-          var xx=col*2+sc, half=halves[xx]; if(levels[xx]>peak) peak=levels[xx];
-          var top=CENTER-half, bot=CENTER+half;
-          for(var sr=0;sr<4;sr++){ var y=row*4+sr; if(y>=top && y<bot) bits|=DOT_BITS[sc][sr]; }
-        }
-        if(bits){
-          var shim=SHIMMER*Math.sin((col/Math.max(WIDTH,1))*2*Math.PI+tick*0.1);
-          var col_t=0.12+0.88*peak+shim;
-          line+='<span style="color:'+grad(col_t,bright)+'">'+String.fromCharCode(0x2800+bits)+'</span>';
-        } else { line+=" "; }
-      }
-      out+='<span class="scrow">'+line+'</span>';
+  function makeScope(el, WIDTH, ROWS, seed){
+    var DOT_COLS=WIDTH*2, CENTER=(ROWS*4)>>1, MAX_HALF=CENTER-1;
+    var levels=new Array(DOT_COLS).fill(0.1);  // scrolling per-dot-column history
+    function push(tick){
+      // synthesize a lively "speech-like" level: layered sines + jitter
+      var s=Math.abs(Math.sin(tick*0.30+seed))*0.5 + Math.abs(Math.sin(tick*0.13+1.1+seed))*0.35;
+      var j=(Math.sin((tick+seed*7)*12.9898)*43758.5453); j=j-Math.floor(j);
+      var lvl=Math.max(0.05,Math.min(1, s*(0.55+0.5*j)));
+      levels.push(lvl); if(levels.length>DOT_COLS) levels.shift();
     }
-    scope.textContent="";
-    scope.innerHTML=out;
+    function render(tick){
+      var halves=new Array(DOT_COLS);
+      for(var x=0;x<DOT_COLS;x++){ halves[x]=Math.max(1, Math.round((levels[x]||0.1)*MAX_HALF)); }
+      var out="";
+      for(var row=0;row<ROWS;row++){
+        var rowMid=row*4+2, edge=Math.abs(rowMid-CENTER)/Math.max(CENTER,1), bright=1-EDGE_DIM*edge;
+        var line="";
+        for(var col=0;col<WIDTH;col++){
+          var bits=0, peak=0;
+          for(var sc=0;sc<2;sc++){
+            var xx=col*2+sc, half=halves[xx]; if(levels[xx]>peak) peak=levels[xx];
+            var top=CENTER-half, bot=CENTER+half;
+            for(var sr=0;sr<4;sr++){ var y=row*4+sr; if(y>=top && y<bot) bits|=DOT_BITS[sc][sr]; }
+          }
+          if(bits){
+            var shim=SHIMMER*Math.sin((col/Math.max(WIDTH,1))*2*Math.PI+tick*0.1);
+            var col_t=0.12+0.88*peak+shim;
+            line+='<span style="color:'+grad(col_t,bright)+'">'+String.fromCharCode(0x2800+bits)+'</span>';
+          } else { line+=" "; }
+        }
+        out+='<span class="scrow">'+line+'</span>';
+      }
+      el.innerHTML=out;
+    }
+    return {push:push, render:render, fill:function(){ for(var i=0;i<DOT_COLS+4;i++) push(i); }};
   }
-  if(scope){
-    if(reduce){ pushSample(); for(var i=0;i<DOT_COLS;i++) pushSample(); renderScope(); }
-    else { setInterval(function(){ tick++; pushSample(); renderScope(); }, 95); renderScope(); }
+  var scopes=[];
+  var s1=document.getElementById("scope");  if(s1) scopes.push(makeScope(s1,11,6,0));
+  var s2=document.getElementById("scope2"); if(s2) scopes.push(makeScope(s2,34,3,3.1));
+  if(scopes.length){
+    if(reduce){ scopes.forEach(function(s){ s.fill(); s.render(0); }); }
+    else {
+      var gtick=0;
+      setInterval(function(){ gtick++; scopes.forEach(function(s){ s.push(gtick); s.render(gtick); }); }, 95);
+      scopes.forEach(function(s){ s.render(0); });
+    }
   }
 
   /* ---- REC timer ---- */
