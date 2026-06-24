@@ -124,7 +124,13 @@ bin/
 ## Related projects
 
 - [mlx-speech](https://github.com/appautomaton/mlx-speech) — our MLX-native speech runtime that powers TNT ([PyPI](https://pypi.org/project/mlx-speech/))
-- [qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx) — our int8 MLX checkpoint that TNT runs (converted from Qwen3-ASR-1.7B); more on [Hugging Face](https://huggingface.co/appautomaton)
+- [qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx) — our int8 MLX checkpoint that TNT runs (converted from Qwen3-ASR-1.7B)
+
+## More from appautomaton
+
+- 🌐 [appautomaton.github.io](https://appautomaton.github.io) — our site
+- 🤗 [huggingface.co/appautomaton](https://huggingface.co/appautomaton) — our models and checkpoints on Hugging Face
+- 🐙 [github.com/appautomaton](https://github.com/appautomaton) — our open-source projects
 
 ## License
 
