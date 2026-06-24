@@ -142,6 +142,14 @@
   .copy:hover{border-color:var(--cyan);color:var(--cyan)}
   .copy.done{border-color:var(--green);color:var(--green)}
 
+  /* hero resource backlinks */
+  .hero-links{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:22px}
+  .hl-label{font-family:var(--tech);font-size:10px;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+  .reslink{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);border-radius:999px;padding:8px 15px;font-size:13px;color:var(--lav);background:rgba(9,0,20,.4);transition:.25s}
+  .reslink:hover{border-color:var(--cyan);color:var(--cyan);background:rgba(122,252,255,.05);transform:translateY(-1px)}
+  .reslink svg{flex:none}
+  .reslink .hf{font-size:14px;line-height:1}
+
   /* ---------- TUI REPLICA ---------- */
   .tui{border:1px solid rgba(155,77,255,.22);border-radius:14px;overflow:hidden;background:var(--void);
     box-shadow:0 44px 100px -34px rgba(0,0,0,.9), 0 0 0 1px rgba(255,79,216,.05), 0 0 90px -30px rgba(155,77,255,.55)}
@@ -376,6 +384,18 @@
         <span class="prmpt">$</span>
         <code>uv tool install automaton-tnt</code>
         <button class="copy" data-copy="uv tool install automaton-tnt">Copy</button>
+      </div>
+
+      <div class="hero-links reveal">
+        <span class="hl-label">Find it on</span>
+        <a class="reslink" href="https://pypi.org/project/automaton-tnt/" target="_blank" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>
+          PyPI
+        </a>
+        <a class="reslink" href="https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx" target="_blank" rel="noopener">
+          <span class="hf">🤗</span>
+          Hugging Face
+        </a>
       </div>
     </div>
 
