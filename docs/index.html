@@ -141,6 +141,7 @@
   /* ---------- HERO ---------- */
   header.hero{position:relative;padding:84px 0 60px}
   .hero-grid{display:grid;grid-template-columns:1fr 1.06fr;gap:54px;align-items:center}
+  .hero-grid > *{min-width:0}
   @media(max-width:960px){.hero-grid{grid-template-columns:1fr;gap:46px}}
 
   .eyebrow{display:inline-flex;align-items:center;gap:10px;font-family:var(--tech);font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--cyan);
@@ -296,6 +297,7 @@
 
   /* install */
   .install-wrap{display:grid;grid-template-columns:.82fr 1.18fr;gap:46px;align-items:start}
+  .install-wrap > *{min-width:0}
   @media(max-width:880px){.install-wrap{grid-template-columns:1fr;gap:34px}}
   .req{border:1px solid var(--line);border-radius:14px;padding:24px;background:rgba(13,4,31,.6)}
   .req h4{font-family:var(--tech);font-weight:600;font-size:11px;letter-spacing:.02em;text-transform:uppercase;color:var(--cyan);margin:0 0 18px}
@@ -304,7 +306,8 @@
   .req li .tick{color:var(--magenta);flex:none}
   .req li b{color:var(--ink);font-weight:600}
 
-  .tabs{display:flex;gap:6px;margin-bottom:14px}
+  .tabs{display:none;gap:6px;margin-bottom:14px}
+  .tabs-ready .tabs{display:flex}
   .tab{font-family:var(--mono);font-size:12px;letter-spacing:.05em;text-transform:uppercase;padding:9px 16px;border-radius:9px;border:1px solid var(--line);color:var(--muted);cursor:pointer;background:transparent;transition:.2s}
   .tab.active{color:var(--cyan);border-color:var(--cyan);background:rgba(122,252,255,.06)}
   .codeblock{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:var(--void-2);box-shadow:0 20px 50px -30px rgba(0,0,0,.8)}
@@ -312,7 +315,12 @@
   .cb-head span{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
   .codeblock pre{margin:0;padding:20px;overflow-x:auto;font-size:13.5px;line-height:1.85}
   .codeblock code{font-family:var(--mono)}
-  .pane{display:none}.pane.active{display:block}
+  .pane{display:block}
+  .pane + .pane{border-top:1px solid var(--line-2)}
+  .tabs-ready .pane{display:none}
+  .tabs-ready .pane.active{display:block}
+  .copy{display:none}
+  .copy-ready .copy{display:inline-flex}
   .c-prompt{color:var(--green)}.c-cmd{color:var(--lav)}.c-flag{color:var(--cyan)}.c-comment{color:var(--muted)}
 
   /* privacy */
@@ -359,15 +367,19 @@
   }
   @media(max-width:480px){
     .hide-xs{display:none !important}
+    .eyebrow{font-size:9px;gap:7px;padding:8px 10px}
+    .cmd{flex-wrap:wrap}
     .spec-item{padding:14px 22px}
     .step,.card{padding:24px 20px}
     .privacy{padding:36px 18px}
   }
 
-  .reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
-  .reveal.in{opacity:1;transform:none}
+  /* Text is readable before scripts run and before a section enters view. */
+  .reveal{opacity:1;transform:none}
+  .reveal.in{animation:settle .7s cubic-bezier(.2,.7,.2,1)}
+  @keyframes settle{from{transform:translateY(12px)}to{transform:none}}
   @media(prefers-reduced-motion:reduce){
-    .reveal{opacity:1;transform:none;transition:none}
+    .reveal.in{animation:none}
     .marquee,.eyebrow .dot,.rail-state .rd,.tui-head .st .rd,.brand .led{animation:none !important}
   }
 </style>
@@ -522,7 +534,7 @@
   <div class="wrap">
     <div class="sec-head reveal">
       <div class="kicker">Get going</div>
-      <h2>Up and running in one command.</h2>
+      <h2>Install TNT and its model.</h2>
       <p>Apple Silicon, Python 3.13+, and uv. The bootstrap script pulls the int8 checkpoint and links it; first launch compiles the tiny Swift mic helper and caches it.</p>
     </div>
     <div class="install-wrap">
@@ -629,12 +641,13 @@
   "use strict";
   var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-  /* reveal on scroll */
-  var io = new IntersectionObserver(function(entries){
-    entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target);} });
-  }, {threshold:.12});
-  document.querySelectorAll(".reveal").forEach(function(el,i){ el.style.transitionDelay = Math.min(i*55,400)+"ms"; io.observe(el); });
-  document.querySelectorAll(".hero .reveal").forEach(function(el,i){ setTimeout(function(){el.classList.add("in");}, 90 + i*90); });
+  /* Optional motion never controls whether text is visible. */
+  if (!reduce && "IntersectionObserver" in window) {
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){ if(e.isIntersecting){ e.target.classList.add("in"); io.unobserve(e.target);} });
+    }, {threshold:.12});
+    document.querySelectorAll(".reveal").forEach(function(el){ io.observe(el); });
+  }
 
   /* copy buttons */
   function flash(btn){ var t=btn.textContent; btn.textContent="Copied ✓"; btn.classList.add("done"); setTimeout(function(){ btn.textContent=t; btn.classList.remove("done"); },1400); }
@@ -657,6 +670,8 @@
   });
   var cbcopy=document.getElementById("cbcopy");
   cbcopy.addEventListener("click", function(){ navigator.clipboard && navigator.clipboard.writeText(current); flash(cbcopy); });
+  document.querySelector(".install-wrap").classList.add("tabs-ready");
+  if (navigator.clipboard) document.documentElement.classList.add("copy-ready");
 
   /* spec marquee */
   var specs=[["1.7B","parameters"],["int8","quantized"],["~2.5 GB","resident"],["16 kHz","mono PCM"],["0","network calls"],["MLX","Apple GPU"],["sub-second","short takes"],["100%","on-device"]];
