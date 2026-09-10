@@ -1,12 +1,12 @@
 # TNT 🧨
 
-[![Website](https://img.shields.io/badge/website-appautomaton.renocrypt.com-ff4fd8?logo=github&logoColor=white)](https://appautomaton.renocrypt.com/tnt-asr/)
+[![Website](https://img.shields.io/badge/website-appautomaton.com-ff4fd8?logo=github&logoColor=white)](https://appautomaton.com/tnt-asr/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![PyPI](https://img.shields.io/badge/PyPI-automaton--tnt-3775A9?logo=pypi&logoColor=white)](https://pypi.org/project/automaton-tnt/)
 [![Python 3.13+](https://img.shields.io/badge/python-3.13+-blue.svg)](https://www.python.org/downloads/)
 [![Platform](https://img.shields.io/badge/platform-Apple%20Silicon-black?logo=apple)](https://developer.apple.com/documentation/apple-silicon)
 
-**🌐 [appautomaton.renocrypt.com/tnt-asr](https://appautomaton.renocrypt.com/tnt-asr/)** — the project landing page.
+**🌐 [appautomaton.com/tnt-asr](https://appautomaton.com/tnt-asr/)** — the project landing page.
 
 Terminal voice-to-text. Tap <kbd>Space</kbd>, speak, tap <kbd>Space</kbd> — your words land in the transcript and on the clipboard.
 
@@ -132,7 +132,7 @@ bin/
 
 ## More from appautomaton
 
-- 🌐 [appautomaton.renocrypt.com](https://appautomaton.renocrypt.com) — our site
+- 🌐 [appautomaton.com](https://appautomaton.com) — our site
 - 🤗 [huggingface.co/appautomaton](https://huggingface.co/appautomaton) — our models and checkpoints on Hugging Face
 - 🐙 [github.com/appautomaton](https://github.com/appautomaton) — our open-source projects
 
