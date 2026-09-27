@@ -19,6 +19,7 @@ except Exception as exc:  # pragma: no cover - env-dependent import failure
 else:
     _SOUNDDEVICE_IMPORT_ERROR = None
 
+
 class Recorder(Protocol):
     """Shared recorder interface used by the app state machine."""
 
@@ -40,6 +41,24 @@ class Recorder(Protocol):
 
     def get_level(self) -> float:
         """Level meter value in range 0.0..1.0."""
+
+    def copy_new_pcm(self, offset: int) -> tuple[np.ndarray, int]:
+        """Copy int16 samples appended after ``offset`` without removing them."""
+
+
+def copy_chunk_list(chunks: list[np.ndarray], offset: int) -> tuple[np.ndarray, int]:
+    """Return mono int16 audio from ``chunks[offset:]`` and the new offset."""
+
+    if offset < 0 or offset > len(chunks):
+        offset = 0
+    new = chunks[offset:]
+    end = len(chunks)
+    if not new:
+        return np.zeros((0,), dtype=np.int16), end
+    audio = np.concatenate(new)
+    if audio.ndim > 1:
+        audio = audio.reshape(-1, audio.shape[-1]).mean(axis=1)
+    return np.asarray(audio, dtype=np.int16).reshape(-1), end
 
 
 def encode_wav(audio_data: np.ndarray, sample_rate: int, channels: int) -> bytes:
@@ -243,6 +262,11 @@ class MicRecorder:
         """Current RMS amplitude normalized to 0.0-1.0."""
         with self._lock:
             return self._current_level
+
+    def copy_new_pcm(self, offset: int) -> tuple[np.ndarray, int]:
+        """Copy samples captured since ``offset``. ``stop`` still owns the buffer."""
+        with self._lock:
+            return copy_chunk_list(self._chunks, offset)
 
     def _audio_callback(
         self,
