@@ -12,7 +12,7 @@ from textual.widgets import Static
 
 WAVEFORM_HEIGHT = 6  # braille cell rows -> 24 dot rows
 COMPACT_WAVEFORM_HEIGHT = 3  # narrow-terminal strip
-COMPACT_PANEL_HEIGHT = 7  # waveform 3 + state line 2 + padding 2
+COMPACT_PANEL_HEIGHT = 4  # waveform 3 + state line 1, no padding
 HISTORY_MAXLEN = 512  # level samples kept for the scrolling oscilloscope
 IDLE_LEVEL = 0.10
 FALLBACK_WIDTH = 16
@@ -26,21 +26,10 @@ _DOT_BITS = (
 
 # Multi-stop gradients: amplitude picks the position, low -> high.
 _GRADIENTS = {
-    "idle": ((0x2B, 0x3A, 0x8F), (0x3F, 0x6C, 0xFF), (0x46, 0xC8, 0xFF), (0x7A, 0xF2, 0xFF)),
-    "recording": (
-        (0x5B, 0x3D, 0xF5),
-        (0x9B, 0x4D, 0xFF),
-        (0xFF, 0x4F, 0xD8),
-        (0xFF, 0x7A, 0x59),
-        (0xFF, 0xD2, 0x4A),
-    ),
-    "stopping": ((0x7A, 0x5B, 0x2A), (0xCA, 0xA1, 0x4A), (0xFF, 0xD1, 0x66), (0xFF, 0xE9, 0xA8)),
-    "transcribing": (
-        (0x3F, 0x5D, 0xFF),
-        (0x8D, 0x6B, 0xFF),
-        (0xFF, 0x71, 0xCE),
-        (0xFF, 0xB8, 0x6B),
-    ),
+    "idle": ((0x3A, 0x34, 0x2C), (0x6E, 0x65, 0x58), (0xA8, 0x9B, 0x86)),
+    "recording": ((0x6B, 0x3E, 0x28), (0xD4, 0x78, 0x4A), (0xF0, 0xC8, 0xA0)),
+    "stopping": ((0x5C, 0x4A, 0x32), (0xC4, 0xA3, 0x6A), (0xE6, 0xD3, 0xA8)),
+    "transcribing": ((0x3E, 0x48, 0x3C), (0x7D, 0x9A, 0x84), (0xD5, 0xE2, 0xC8)),
 }
 
 _EDGE_DIM = 0.35  # brightness falloff from the center line to the edges
@@ -65,8 +54,8 @@ class StatusPanel(Widget):
 
     DEFAULT_CSS = """
     StatusPanel {
-        background: #161618;
-        color: #f8f4ff;
+        background: #24211c;
+        color: #f3eee4;
         layout: vertical;
         align: center middle;
         padding: 1 2;
@@ -110,12 +99,18 @@ class StatusPanel(Widget):
     def on_mount(self) -> None:
         self._refresh_display()
 
+    def set_model_label(self, label: str) -> None:
+        self._model_label = label
+        self._refresh_display()
+
     def set_compact(self, compact: bool) -> None:
         """Shrink the oscilloscope and hide model info for narrow strips."""
         self._waveform_rows = COMPACT_WAVEFORM_HEIGHT if compact else WAVEFORM_HEIGHT
         try:
             self.query_one("#waveform", Static).styles.height = self._waveform_rows
             self.query_one("#model-line", Static).display = not compact
+            self.query_one("#state-line", Static).styles.margin = 0 if compact else (1, 0, 0, 0)
+            self.styles.padding = (0, 1) if compact else (1, 2)
         except Exception:
             pass
         self._refresh_display()
@@ -210,7 +205,8 @@ class StatusPanel(Widget):
     ) -> list[float]:
         t = self._sine_tick * speed
         return [
-            baseline + amplitude * abs(math.sin((x / max(dot_cols, 1)) * 2 * math.pi + t))
+            baseline
+            + amplitude * abs(math.sin((x / max(dot_cols, 1)) * 2 * math.pi + t))
             for x in range(dot_cols)
         ]
 
@@ -270,22 +266,24 @@ class StatusPanel(Widget):
         text = Text(justify="center")
         match self.state:
             case "idle":
-                text.append("■ READY", style="bold #7afcff")
+                text.append("ready", style="#7d9a84")
             case "recording":
-                text.append("● REC", style="bold #ff5ccf")
+                text.append("recording", style="bold #d4784a")
                 mins = int(self._elapsed) // 60
                 secs = self._elapsed - (mins * 60)
-                text.append(f"  {mins:02d}:{secs:04.1f}", style="bold #7afcff")
+                text.append(f"  {mins:02d}:{secs:04.1f}", style="#f3eee4")
             case "stopping":
-                text.append("◌ STOPPING MIC", style="bold #ffd166")
+                text.append("closing mic", style="#c4a36a")
             case "transcribing":
-                text.append("◌ TRANSCRIBING", style="bold #ffd166")
+                text.append("writing", style="#c4a36a")
         return text
 
     def _render_model_line(self) -> Text:
         text = Text(justify="center")
         if self._model_label:
-            text.append(self._model_label, style="#6e6e76")
-            text.append(" · ", style="#3f3f46")
-            text.append("16kHz", style="#6e6e76")
+            label = self._model_label
+            if self.size.width < 28:
+                label = "R2T2" if "r2t2" in label.lower() else "Qwen3-ASR"
+            text.append(label, style="#9c9386")
+            text.append("\n16 kHz", style="#9c9386")
         return text

@@ -137,7 +137,9 @@ class AVFRecorder:
         self._proc = proc
 
         if not self._wait_for_ready(proc):
-            error = self._last_helper_error or "mic helper exited before capture started"
+            error = (
+                self._last_helper_error or "mic helper exited before capture started"
+            )
             self._recording = False
             self._proc = None
             self._terminate(proc, immediate=True)
@@ -209,6 +211,13 @@ class AVFRecorder:
         """Current RMS amplitude normalized to 0.0-1.0."""
         with self._lock:
             return self._current_level
+
+    def copy_new_pcm(self, offset: int) -> tuple[np.ndarray, int]:
+        """Copy samples captured since ``offset``. ``stop`` still owns the buffer."""
+        from tnt.audio import copy_chunk_list
+
+        with self._lock:
+            return copy_chunk_list(self._chunks, offset)
 
     def _wait_for_ready(self, proc: subprocess.Popen) -> bool:
         """Block until the helper reports TNT_READY (True) or fails (False)."""

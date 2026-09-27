@@ -16,11 +16,11 @@ class TranscriptEntry(Static):
     TranscriptEntry {
         padding: 0 1;
         margin: 0 0 1 0;
-        color: #ece6fb;
+        color: #f3eee4;
     }
 
     TranscriptEntry:hover {
-        background: #221a40;
+        background: #2c2822;
     }
     """
 
@@ -48,7 +48,7 @@ class TranscriptPlaceholder(Static):
     TranscriptPlaceholder {
         padding: 0 1;
         margin: 0 0 1 0;
-        color: #ff71ce;
+        color: #d4784a;
     }
     """
 
@@ -58,9 +58,14 @@ class TranscriptView(VerticalScroll):
 
     DEFAULT_CSS = """
     TranscriptView {
-        background: #0d041f;
-        color: #ece6fb;
+        background: #161410;
+        color: #f3eee4;
         padding: 1 2;
+        scrollbar-size-vertical: 1;
+        scrollbar-background: #161410;
+        scrollbar-color: #3a342c;
+        scrollbar-color-hover: #5a5046;
+        scrollbar-color-active: #7d9a84;
     }
     """
 
@@ -76,7 +81,7 @@ class TranscriptView(VerticalScroll):
 
         content = Text()
         content.append_text(self._build_meta(seq, duration))
-        content.append(f"\n{text}", style="#ece6fb")
+        content.append(f"\n{text}", style="#f3eee4")
 
         self.mount(TranscriptEntry(content, raw_text=text, seq=seq))
         self.scroll_end(animate=False)
@@ -86,14 +91,33 @@ class TranscriptView(VerticalScroll):
         """Build the muted metadata line for an entry."""
         utc_time = datetime.now(UTC).strftime("%H:%M:%S")
         meta = Text()
-        meta.append(f"#{seq}", style="bold #42f5ff")
-        meta.append(f" · {duration:.1f}s · {utc_time} UTC", style="#6f5fa8")
+        meta.append(f"#{seq}", style="#d4784a")
+        meta.append(f"  {duration:.1f}s  {utc_time}", style="#9c9386")
         return meta
+
+    def show_live(self, text: str) -> None:
+        """Show the committed text of the take that is still being recorded."""
+        self.remove_placeholder()
+        body = text if text else "…"
+        try:
+            node = self.query_one("#transcript-live", Static)
+        except Exception:
+            node = Static("", id="transcript-live")
+            self.mount(node)
+        node.update(Text(body, style="#f3eee4"))
+        self.scroll_end(animate=False)
+
+    def clear_live(self) -> None:
+        """Remove the in-progress line."""
+        try:
+            self.query_one("#transcript-live").remove()
+        except Exception:
+            pass
 
     def show_placeholder(self) -> None:
         """Show a transcription-in-progress cursor."""
         self.remove_placeholder()
-        self.mount(TranscriptPlaceholder("[#ff71ce]▊[/]", id="transcript-placeholder"))
+        self.mount(TranscriptPlaceholder("▊", id="transcript-placeholder"))
         self.scroll_end(animate=False)
 
     def remove_placeholder(self) -> None:
@@ -111,4 +135,5 @@ class TranscriptView(VerticalScroll):
         """Remove all transcript entries."""
         self._entries.clear()
         self.query(TranscriptEntry).remove()
+        self.clear_live()
         self.remove_placeholder()

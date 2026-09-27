@@ -6,7 +6,21 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tnt.audio import MicRecorder  # noqa: E402
+from tnt.audio import MicRecorder, copy_chunk_list  # noqa: E402
+
+
+def test_copy_chunk_list_returns_only_new_samples() -> None:
+    first = np.array([1, 2], dtype=np.int16)
+    second = np.array([[3], [4]], dtype=np.int16)
+    audio, offset = copy_chunk_list([first], 0)
+    assert offset == 1
+    np.testing.assert_array_equal(audio, first)
+    audio, offset = copy_chunk_list([first, second], offset)
+    assert offset == 2
+    np.testing.assert_array_equal(audio, np.array([3, 4], dtype=np.int16))
+    empty, offset = copy_chunk_list([first, second], offset)
+    assert empty.size == 0
+    assert offset == 2
 
 
 def test_mic_recorder_stop_aborts_stream_without_stop(monkeypatch) -> None:

@@ -45,10 +45,8 @@ TNT is a terminal voice-to-text TUI:
 - Use `uv` only (`uv sync`, `uv run`, `uv add`).
 - Keep runtime dependencies minimal (`textual`, `numpy`, `mlx-speech` + stdlib;
   `sounddevice` on non-macOS only).
-- `mlx-speech` is our own package, installed from PyPI (`>=0.4.3`). Its source
-  lives at `/Users/ac/dev/ai/genai/mlx-speech`; keep the projects decoupled —
-  do not reintroduce a `[tool.uv.sources]` path override outside of temporary
-  local debugging.
+- `mlx-speech` is our own package, installed from PyPI (`>=0.5.3` for
+  Confucius4-R2T2 streaming). Do not add a local path override.
 - Keep blocking work off the UI path (use async/worker patterns).
 - The UI thread must NEVER call the recorder directly (start/stop/abort).
   PortAudio can wedge inside C where Python cannot interrupt it; all audio

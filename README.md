@@ -89,6 +89,7 @@ yourself with [mlx-speech](https://github.com/appautomaton/mlx-speech)'s
 | Environment variable | Default | Description |
 |----------------------|---------|-------------|
 | `TNT_MLX_MODEL` | `bin/qwen3-asr-mlx`, else `~/.local/share/tnt/qwen3-asr-mlx` | Path to the converted MLX checkpoint |
+| `TNT_R2T2_MODEL` | `bin/r2t2-mlx`, else `~/.local/share/tnt/r2t2-mlx` | Confucius4-R2T2 MLX checkpoint; when present, `m` switches to it |
 | `TNT_MLX_LANGUAGE` | `auto` | `Chinese`, `English`, or `auto`. Use `Chinese` to keep mixed Chinese/English speech from being translated to English |
 | `TNT_INPUT_DEVICE` | system default | Microphone, by index or name |
 | `TNT_CAPTURE_BACKEND` | `auto` | macOS always uses native AVFoundation (needs the Xcode command line tools: `xcode-select --install`); other platforms use PortAudio. `portaudio` is rejected on macOS |
