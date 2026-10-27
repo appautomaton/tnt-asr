@@ -13,11 +13,15 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from tnt.transcriber import (  # noqa: E402
+    DEFAULT_CONTEXT,
+    MODEL_LABEL,
+    R2T2_LABEL,
     LiveUtterance,
     MlxQwenTranscriber,
     TranscriptionTimeoutError,
-    _visible_transcript,
     _wav_bytes_to_float32,
+    load_context,
+    model_choices,
     pump_live,
     recommended_timeout,
 )
@@ -47,10 +51,40 @@ def _make_transcriber(tmp_path: Path, monkeypatch) -> MlxQwenTranscriber:
     return MlxQwenTranscriber(model_dir=str(model_dir))
 
 
-def test_visible_transcript_drops_glued_language_prefix() -> None:
-    assert _visible_transcript("language EnglishSearch for the e") == "Search for the e"
-    assert _visible_transcript("  language Chinese你好") == "你好"
-    assert _visible_transcript("Search for the e") == "Search for the e"
+@pytest.fixture(autouse=True)
+def _no_user_context_file(tmp_path: Path, monkeypatch) -> None:
+    """Tests never read the developer's real ~/.config/tnt/context.txt."""
+    monkeypatch.setattr("tnt.transcriber.CONTEXT_FILE", tmp_path / "absent-context.txt")
+
+
+def test_load_context_prefers_the_context_file(tmp_path: Path) -> None:
+    path = tmp_path / "context.txt"
+    assert load_context(path) == DEFAULT_CONTEXT
+    path.write_text("  Terms: MLX, Qwen.\n", encoding="utf-8")
+    assert load_context(path) == "Terms: MLX, Qwen."
+    path.write_text("", encoding="utf-8")
+    assert load_context(path) == ""
+
+
+def test_model_choices_put_r2t2_first_and_default_to_it(
+    tmp_path: Path, monkeypatch
+) -> None:
+    home = tmp_path / "home"
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(Path, "home", lambda: home)
+    monkeypatch.delenv("TNT_R2T2_MODEL", raising=False)
+
+    assert model_choices() == []
+    expected = (home / ".local" / "share" / "tnt" / "r2t2-mlx").resolve()
+    assert MlxQwenTranscriber._default_model_dir() == expected
+
+    (tmp_path / "bin" / "qwen3-asr-mlx").mkdir(parents=True)
+    assert [label for label, _ in model_choices()] == [MODEL_LABEL]
+
+    (tmp_path / "bin" / "r2t2-mlx").mkdir()
+    choices = model_choices()
+    assert [label for label, _ in choices] == [R2T2_LABEL, MODEL_LABEL]
+    assert MlxQwenTranscriber._default_model_dir() == choices[0][1]
 
 
 def test_recommended_timeout_scales_with_audio_length() -> None:
@@ -106,9 +140,10 @@ def test_mlx_transcribe_async_returns_text(tmp_path: Path, monkeypatch) -> None:
     transcriber = _make_transcriber(tmp_path, monkeypatch)
 
     class FakeModel:
-        def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
+        def generate(self, audio, *, sample_rate, language, context):  # noqa: ANN001
             assert sample_rate == 16000
             assert language is None
+            assert context == DEFAULT_CONTEXT
             return SimpleNamespace(text=" hello world ", language="English")
 
     MlxQwenTranscriber._model_cache[transcriber.model_dir] = FakeModel()
@@ -132,7 +167,7 @@ def test_mlx_transcribe_async_timeout_abandons_result(
     monkeypatch.setattr("mlx.core.clear_cache", drained.set)
 
     class SlowModel:
-        def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
+        def generate(self, audio, *, sample_rate, language, context):  # noqa: ANN001
             started.set()
             time.sleep(0.3)
             return SimpleNamespace(text="late", language="English")
@@ -192,9 +227,12 @@ def test_pump_live_feeds_new_samples_then_finalizes() -> None:
         def __init__(self) -> None:
             self.session = Session()
 
-        def stream_session(self, *, language, chunk_ms, lookahead_ms):  # noqa: ANN001
+        def stream_session(
+            self, *, language, context, chunk_ms, lookahead_ms, unfixed_token_num
+        ):
             assert language == "Chinese"
-            assert chunk_ms == 160
+            assert context == DEFAULT_CONTEXT
+            assert (chunk_ms, unfixed_token_num) == (640, 2)
             return self.session
 
     model = Model()
@@ -229,10 +267,12 @@ def test_mlx_transcribe_uses_stream_session_when_present(
             return SimpleNamespace(text="你好。", language="Chinese")
 
     class StreamingModel:
-        def stream_session(self, *, language, chunk_ms, lookahead_ms):  # noqa: ANN001
+        def stream_session(
+            self, *, language, context, chunk_ms, lookahead_ms, unfixed_token_num
+        ):
             assert language == "Chinese"
-            assert chunk_ms == 160
-            assert lookahead_ms == 160
+            assert context == DEFAULT_CONTEXT
+            assert (chunk_ms, lookahead_ms, unfixed_token_num) == (640, 160, 2)
             events.append("session")
             return FakeSession()
 
@@ -263,7 +303,7 @@ def test_mlx_transcribe_clears_buffer_cache_after_generate(
     monkeypatch.setattr("mlx.core.clear_cache", lambda: events.append("clear"))
 
     class FakeModel:
-        def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
+        def generate(self, audio, *, sample_rate, language, context):  # noqa: ANN001
             events.append("generate")
             return SimpleNamespace(text=" hi ", language="English")
 
@@ -287,7 +327,7 @@ def test_mlx_transcribe_clears_buffer_cache_when_generate_raises(
     monkeypatch.setattr("mlx.core.clear_cache", lambda: events.append("clear"))
 
     class ExplodingModel:
-        def generate(self, audio, *, sample_rate, language):  # noqa: ANN001
+        def generate(self, audio, *, sample_rate, language, context):  # noqa: ANN001
             events.append("generate")
             raise RuntimeError("context overflow")
 

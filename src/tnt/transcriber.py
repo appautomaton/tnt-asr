@@ -1,4 +1,4 @@
-"""In-process Qwen3-ASR transcription on the Apple GPU via mlx-speech."""
+"""In-process speech recognition on the Apple GPU via mlx-speech."""
 
 import asyncio
 import importlib.util
@@ -18,27 +18,54 @@ MODEL_LABEL = "qwen3-asr-1.7b-int8-mlx"
 R2T2_LABEL = "confucius4-r2t2-bf16"
 DEFAULT_TIMEOUT_SECONDS = 60.0
 
+# A domain line plus the terms works; a bare word list or a domain line alone
+# barely helps. ~/.config/tnt/context.txt replaces this whole string (an empty
+# file means no context).
+DEFAULT_CONTEXT = (
+    "Software engineering dictation. It may mention Anthropic, Claude, "
+    "Claude Code, Opus, and Sonnet."
+)
+CONTEXT_FILE = Path.home() / ".config" / "tnt" / "context.txt"
+
+
+def load_context(path: Path | None = None) -> str:
+    """Recognition context: the context file when it exists, else the default."""
+
+    path = CONTEXT_FILE if path is None else path
+    if path.exists():
+        return path.read_text(encoding="utf-8").strip()
+    return DEFAULT_CONTEXT
+
+
+def _r2t2_model_dir() -> Path:
+    raw = os.environ.get("TNT_R2T2_MODEL", "").strip()
+    if raw:
+        return Path(raw).expanduser()
+    if Path("bin/r2t2-mlx").exists():
+        return Path("bin/r2t2-mlx")
+    return Path.home() / ".local" / "share" / "tnt" / "r2t2-mlx"
+
+
+def _qwen3_model_dir() -> Path:
+    """The cwd-relative bin/ link exists only in a checkout; pip-installed
+    runs fall through to the per-user link that bootstrap-mlx-asr.sh makes."""
+
+    if Path("bin/qwen3-asr-mlx").exists():
+        return Path("bin/qwen3-asr-mlx")
+    return Path.home() / ".local" / "share" / "tnt" / "qwen3-asr-mlx"
+
 
 def model_choices() -> list[tuple[str, Path]]:
     """Installed models the user can switch between: ``(label, dir)``.
 
-    Qwen3-ASR (one-shot) comes first and is the default; R2T2 (live
-    streaming) is offered when its checkpoint link exists, found the same
-    way as Qwen3-ASR: ``TNT_R2T2_MODEL``, else ``bin/r2t2-mlx``, else
-    ``~/.local/share/tnt/r2t2-mlx``.
+    R2T2 (live streaming) comes first and is the default; Qwen3-ASR
+    (one-shot) follows. R2T2 is found at ``TNT_R2T2_MODEL``, else
+    ``bin/r2t2-mlx``, else ``~/.local/share/tnt/r2t2-mlx``; Qwen3-ASR at
+    ``bin/qwen3-asr-mlx``, else ``~/.local/share/tnt/qwen3-asr-mlx``.
     """
 
-    choices = [(MODEL_LABEL, MlxQwenTranscriber._default_model_dir())]
-    raw = os.environ.get("TNT_R2T2_MODEL", "").strip()
-    if raw:
-        r2t2 = Path(raw).expanduser()
-    elif Path("bin/r2t2-mlx").exists():
-        r2t2 = Path("bin/r2t2-mlx")
-    else:
-        r2t2 = Path.home() / ".local" / "share" / "tnt" / "r2t2-mlx"
-    if r2t2.exists():
-        choices.append((R2T2_LABEL, r2t2.resolve()))
-    return choices
+    candidates = ((R2T2_LABEL, _r2t2_model_dir()), (MODEL_LABEL, _qwen3_model_dir()))
+    return [(label, path.resolve()) for label, path in candidates if path.exists()]
 
 
 def label_for_model_dir(model_dir: Path) -> str:
@@ -47,8 +74,13 @@ def label_for_model_dir(model_dir: Path) -> str:
         if path.resolve() == resolved:
             return label
     return resolved.name
-_STREAM_CHUNK_MS = 160
+
+
+# 640 ms windows with two held-back tokens trade up to about a second of
+# display lag for accuracy. Lookahead only delays the first window.
+_STREAM_CHUNK_MS = 640
 _STREAM_LOOKAHEAD_MS = 160
+_STREAM_UNFIXED_TOKENS = 2
 
 
 class TranscriptionTimeoutError(asyncio.TimeoutError):
@@ -61,7 +93,7 @@ def recommended_timeout(audio_seconds: float) -> float:
 
 
 class MlxQwenTranscriber:
-    """In-process Qwen3-ASR inference on the GPU via mlx-speech.
+    """In-process R2T2 or Qwen3-ASR inference on the GPU via mlx-speech.
 
     The model stays resident after the first load, so there is no subprocess
     lifecycle to manage. The trade-off: an in-flight generate() cannot be
@@ -97,16 +129,13 @@ class MlxQwenTranscriber:
 
     @staticmethod
     def _default_model_dir() -> Path:
-        """Repo-local checkpoint link when present, else the user-level one.
+        """The first installed model; with none, the R2T2 location, so the
+        missing-model error points at the default bootstrap."""
 
-        The cwd-relative bin/ link only exists when running from a checkout;
-        pip-installed runs from anywhere fall through to the per-user path
-        that bootstrap-mlx-asr.sh also links.
-        """
-        repo_local = Path("bin/qwen3-asr-mlx")
-        if repo_local.exists():
-            return repo_local.resolve()
-        return Path.home() / ".local" / "share" / "tnt" / "qwen3-asr-mlx"
+        choices = model_choices()
+        if choices:
+            return choices[0][1]
+        return _r2t2_model_dir().resolve()
 
     def _validate(self) -> None:
         if sys.platform != "darwin" or platform.machine().lower() != "arm64":
@@ -116,9 +145,10 @@ class MlxQwenTranscriber:
         if not self.model_dir.exists():
             raise FileNotFoundError(
                 f"MLX model not found at {self.model_dir}\n"
-                "Fetch it with: ./bootstrap-mlx-asr.sh  (downloads the int8 "
-                "Qwen3-ASR checkpoint from Hugging Face and links it). If you "
-                "already have a checkpoint, pass its path to that script or set "
+                "Fetch it with: ./bootstrap-mlx-asr.sh  (downloads the "
+                "Confucius4-R2T2 checkpoint from Hugging Face and links it; "
+                "add `qwen3` for Qwen3-ASR). If you already have a checkpoint, "
+                "pass `r2t2 <path>` or `qwen3 <path>` to that script, or set "
                 "TNT_MLX_MODEL to it."
             )
         missing = [
@@ -183,6 +213,7 @@ class MlxQwenTranscriber:
         import mlx.core as mx  # local: keep transcriber importable without MLX
 
         audio, sample_rate = _wav_bytes_to_float32(wav_bytes)
+        context = load_context()
         model = self._load_model_locked()
         # Serialize generations: an abandoned (cancelled/timed-out) generate
         # keeps the GPU busy until it finishes; the next one must wait.
@@ -196,10 +227,14 @@ class MlxQwenTranscriber:
                         audio,
                         sample_rate=sample_rate,
                         language=self.language,
+                        context=context,
                     )
                 else:
                     result = model.generate(
-                        audio, sample_rate=sample_rate, language=self.language
+                        audio,
+                        sample_rate=sample_rate,
+                        language=self.language,
+                        context=context,
                     )
                     text = result.text
             finally:
@@ -216,7 +251,7 @@ class MlxQwenTranscriber:
                 mx.clear_cache()
         if self._abandoned:
             raise asyncio.CancelledError()
-        return _visible_transcript(text)
+        return text.strip()
 
     async def transcribe_async(self, wav_bytes: bytes, timeout: float = 120) -> str:
         """Run transcription in a worker thread with cancellation support."""
@@ -247,31 +282,27 @@ class LiveUtterance:
     """Feed mic PCM into one R2T2 session while the user is still talking.
 
     ``text`` is the append-only committed string. ``finish`` releases the
-    held-back token. A model step can take a moment; it runs on the caller
+    held-back tokens. A model step can take a moment; it runs on the caller
     thread, never the UI thread.
     """
 
     def __init__(self, model: object, language: str | None) -> None:
         self.text = ""
-        self._session = model.stream_session(  # type: ignore[attr-defined]
-            language=language or "Chinese",
-            chunk_ms=_STREAM_CHUNK_MS,
-            lookahead_ms=_STREAM_LOOKAHEAD_MS,
-        )
+        self._session = _open_stream(model, language=language, context=load_context())
 
     def push_int16(self, pcm: np.ndarray) -> str:
         if pcm.size == 0:
             return self.text
         audio = np.asarray(pcm, dtype=np.float32).reshape(-1) / 32768.0
         update = self._session.feed(audio)
-        self.text = _visible_transcript(update.committed)
+        self.text = update.committed.strip()
         return self.text
 
     def finish(self) -> str:
         import mlx.core as mx
 
         try:
-            self.text = _visible_transcript(self._session.finalize().text)
+            self.text = self._session.finalize().text.strip()
         finally:
             mx.clear_cache()
         return self.text.strip()
@@ -297,55 +328,21 @@ def pump_live(recorder, utterance: LiveUtterance, stop: threading.Event) -> str:
     return utterance.finish()
 
 
-_LANGUAGE_NAMES = (
-    "Chinese",
-    "English",
-    "Cantonese",
-    "Arabic",
-    "German",
-    "French",
-    "Spanish",
-    "Portuguese",
-    "Indonesian",
-    "Italian",
-    "Korean",
-    "Russian",
-    "Thai",
-    "Vietnamese",
-    "Japanese",
-    "Turkish",
-    "Hindi",
-    "Malay",
-    "Dutch",
-    "Swedish",
-    "Danish",
-    "Finnish",
-    "Polish",
-    "Czech",
-    "Filipino",
-    "Persian",
-    "Greek",
-    "Romanian",
-    "Hungarian",
-    "Macedonian",
-)
+def _open_stream(model, *, language: str | None, context: str):
+    """One R2T2 session with TNT's window. An unset language streams as
+    Chinese: auto-detected Chinese often ends without its closing 。."""
 
-
-def _visible_transcript(text: str) -> str:
-    """Drop a leaked ``language English`` prefix glued onto the words."""
-
-    cleaned = text.strip()
-    if not cleaned.lower().startswith("language"):
-        return cleaned
-    rest = cleaned[len("language") :].lstrip()
-    for name in sorted(_LANGUAGE_NAMES, key=len, reverse=True):
-        if rest.lower().startswith(name.lower()):
-            return rest[len(name) :].lstrip()
-    return cleaned
+    return model.stream_session(
+        language=language or "Chinese",
+        context=context,
+        chunk_ms=_STREAM_CHUNK_MS,
+        lookahead_ms=_STREAM_LOOKAHEAD_MS,
+        unfixed_token_num=_STREAM_UNFIXED_TOKENS,
+    )
 
 
 def _stream_utterance(
-    model, audio: np.ndarray, *, sample_rate: int, language: str | None
+    model, audio: np.ndarray, *, sample_rate: int, language: str | None, context: str
 ) -> str:
     """Run one recorded take through the R2T2 chunk loop.
 
@@ -354,13 +351,11 @@ def _stream_utterance(
     """
 
     if sample_rate != 16000:
-        result = model.generate(audio, sample_rate=sample_rate, language=language)
+        result = model.generate(
+            audio, sample_rate=sample_rate, language=language, context=context
+        )
         return result.text
-    session = model.stream_session(
-        language=language,
-        chunk_ms=_STREAM_CHUNK_MS,
-        lookahead_ms=_STREAM_LOOKAHEAD_MS,
-    )
+    session = _open_stream(model, language=language, context=context)
     session.feed(np.asarray(audio, dtype=np.float32))
     return session.finalize().text
 
