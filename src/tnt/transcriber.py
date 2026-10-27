@@ -19,11 +19,13 @@ R2T2_LABEL = "confucius4-r2t2-bf16"
 DEFAULT_TIMEOUT_SECONDS = 60.0
 
 # A domain line plus the terms works; a bare word list or a domain line alone
-# barely helps. ~/.config/tnt/context.txt replaces this whole string (an empty
-# file means no context).
+# barely helps. List only names the model mishears: spoken file names such as
+# CLAUDE.md don't come out as written and cost accuracy on the names.
+# ~/.config/tnt/context.txt replaces this whole string (an empty file means no
+# context).
 DEFAULT_CONTEXT = (
     "Software engineering dictation. It may mention Anthropic, Claude, "
-    "Claude Code, Opus, and Sonnet."
+    "Claude Code, and Codex."
 )
 CONTEXT_FILE = Path.home() / ".config" / "tnt" / "context.txt"
 
