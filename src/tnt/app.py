@@ -20,7 +20,7 @@ from textual.widgets import Static
 from tnt.async_threads import start_daemon_thread
 from tnt.audio import Recorder, create_recorder
 from tnt.transcriber import (
-    MODEL_LABEL,
+    R2T2_LABEL,
     LiveUtterance,
     MlxQwenTranscriber,
     model_choices,
@@ -142,6 +142,8 @@ class TntApp(App):
     # Bluetooth devices legitimately take 1-2s to wake from sleep.
     _RECORDER_STOP_TIMEOUT_SECONDS = 1.0
     _RECORDER_START_TIMEOUT_SECONDS = 3.0
+    # Longest take: recording stops and transcribes on its own after this.
+    _MAX_TAKE_SECONDS = 180.0
 
     CSS = """
     Screen {
@@ -185,6 +187,7 @@ class TntApp(App):
         self._transcribe_worker = None
         self._space_recording_mode = "ready"
         self._space_mode_generation = 0
+        self._space_swallow = False
         self._live_stop: threading.Event | None = None
         self._live_thread: threading.Thread | None = None
         self._live_text = ""
@@ -195,7 +198,7 @@ class TntApp(App):
         try:
             return self._init_transcriber().model_label
         except Exception:
-            return MODEL_LABEL
+            return R2T2_LABEL
 
     def action_switch_model(self) -> None:
         """m: cycle between installed models while idle; the old one is freed."""
@@ -313,16 +316,47 @@ class TntApp(App):
         """Periodic callback during recording to update timer and level."""
         if not self.recorder.is_recording:
             return
+        elapsed = self.recorder.elapsed()
+        if elapsed >= self._MAX_TAKE_SECONDS and self.state == "recording":
+            self._stop_at_take_limit()
+            return
         panel = self.query_one(StatusPanel)
-        panel.update_elapsed(self.recorder.elapsed())
+        panel.update_elapsed(elapsed)
         panel.push_level(self.recorder.get_level())
         utterance = getattr(self, "_utterance", None)
         if utterance is not None and utterance.text:
             self._live_text = utterance.text
             self.query_one(TranscriptView).show_live(utterance.text)
 
+    def _stop_at_take_limit(self) -> None:
+        """Stop and transcribe at the take limit. A still-held Space keeps
+        repeating; swallow it until release so it cannot cancel the result."""
+        held = self._space_recording_mode == "hold"
+        self._stop_recording()
+        if held:
+            self._space_swallow = True
+            self._arm_space_swallow_timer()
+        minutes = self._MAX_TAKE_SECONDS / 60
+        self.notify(f"Reached the {minutes:g}-minute take limit; transcribing.")
+
+    def _arm_space_swallow_timer(self) -> None:
+        """End the swallow once key-repeat stops, as hold release is inferred."""
+        self._space_mode_generation += 1
+        generation = self._space_mode_generation
+        self.set_timer(
+            self._SPACE_HOLD_RELEASE_WINDOW_SECONDS,
+            lambda: self._end_space_swallow(generation),
+        )
+
+    def _end_space_swallow(self, generation: int) -> None:
+        if generation == self._space_mode_generation:
+            self._space_swallow = False
+
     def action_toggle_recording(self) -> None:
         """Space key: tap toggles, while a held key records until release."""
+        if self._space_swallow:
+            self._arm_space_swallow_timer()
+            return
         match self.state:
             case "idle":
                 self._start_recording()

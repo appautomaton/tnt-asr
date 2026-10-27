@@ -10,8 +10,8 @@ Terminal voice-to-text for Apple Silicon. Tap <kbd>Space</kbd>, speak, tap <kbd>
 
 Models run locally on the Apple GPU through [mlx-speech](https://github.com/appautomaton/mlx-speech). No cloud, no PyTorch.
 
-- **Qwen3-ASR-1.7B** (default): transcribes each take after you stop.
-- **Confucius4-R2T2** (optional): transcribes live while you speak.
+- **Confucius4-R2T2** (default): transcribes live while you speak.
+- **Qwen3-ASR-1.7B** (optional): transcribes each take after you stop.
 
 Press <kbd>m</kbd> to switch models. Only the active model stays in memory.
 
@@ -26,7 +26,7 @@ Requires an Apple Silicon Mac, Python 3.13+, [uv](https://docs.astral.sh/uv/), a
 git clone https://github.com/appautomaton/tnt-asr.git
 cd tnt-asr
 uv sync
-./bootstrap-mlx-asr.sh   # link or download the Qwen3-ASR checkpoint
+./bootstrap-mlx-asr.sh   # download and link the R2T2 checkpoint
 uv run tnt
 ```
 
@@ -38,25 +38,36 @@ TNT reads models from local paths only.
 
 | Model | Checkpoint | Location |
 |-------|------------|----------|
-| Qwen3-ASR | [qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx) | `TNT_MLX_MODEL`, else `bin/qwen3-asr-mlx`, else `~/.local/share/tnt/qwen3-asr-mlx` |
 | Confucius4-R2T2 | [confucius4-r2t2-bf16-mlx](https://huggingface.co/appautomaton/confucius4-r2t2-bf16-mlx) | `TNT_R2T2_MODEL`, else `bin/r2t2-mlx`, else `~/.local/share/tnt/r2t2-mlx` |
+| Qwen3-ASR | [qwen3-asr-1.7b-int8-mlx](https://huggingface.co/appautomaton/qwen3-asr-1.7b-int8-mlx) | `bin/qwen3-asr-mlx`, else `~/.local/share/tnt/qwen3-asr-mlx` |
 
-`./bootstrap-mlx-asr.sh /path/to/checkpoint` links a Qwen3-ASR checkpoint you already have. With no argument it downloads the int8 build. For R2T2, symlink your checkpoint to one of the locations above.
+TNT starts with the first installed model in this order. `./bootstrap-mlx-asr.sh` downloads R2T2; `./bootstrap-mlx-asr.sh qwen3` downloads Qwen3-ASR. Add a local path or a Hugging Face repo id after the model name to link or fetch a specific checkpoint.
 
 ## Configuration
 
 | Environment variable | Default | Description |
 |----------------------|---------|-------------|
-| `TNT_MLX_MODEL` | see above | Qwen3-ASR checkpoint |
+| `TNT_MLX_MODEL` | first installed model | Startup checkpoint, of either model |
 | `TNT_R2T2_MODEL` | see above | Confucius4-R2T2 checkpoint |
-| `TNT_MLX_LANGUAGE` | `auto` | `Chinese`, `English`, or `auto`. `Chinese` keeps mixed Chinese/English speech from being translated to English |
+| `TNT_MLX_LANGUAGE` | `auto` | `Chinese`, `English`, or `auto`. R2T2 streams `auto` as `Chinese`, which handles mixed speech and keeps closing punctuation. For Qwen3-ASR, `Chinese` keeps mixed speech from being translated to English |
 | `TNT_INPUT_DEVICE` | system default | Microphone, by index or name |
+
+### Recognition context
+
+TNT tells the model which names to expect. The default covers Anthropic, Claude, Claude Code, and Codex. `~/.config/tnt/context.txt` replaces the default entirely: put every name you want on the first line, then a short domain line.
+
+```
+Anthropic, Claude, Claude Code, Codex, MLX, Qwen
+Software engineering dictation.
+```
+
+The model reads this as background, not instructions. List only names it mishears: each extra name weakens the others, and spoken file names such as `CLAUDE.md` don't come out as written. An empty file turns context off. TNT reads the file for each take.
 
 ## Keys
 
 | Key | Action |
 |-----|--------|
-| <kbd>Space</kbd> | Start / stop recording (or hold to record); cancels a running transcription |
+| <kbd>Space</kbd> | Start / stop recording (or hold to record); cancels a running transcription. A take stops and transcribes on its own after 3 minutes |
 | <kbd>m</kbd> | Switch model |
 | <kbd>c</kbd> | Copy the last entry |
 | click | Copy the clicked entry |
