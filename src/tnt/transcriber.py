@@ -18,15 +18,12 @@ MODEL_LABEL = "qwen3-asr-1.7b-int8-mlx"
 R2T2_LABEL = "confucius4-r2t2-bf16"
 DEFAULT_TIMEOUT_SECONDS = 60.0
 
-# A domain line plus the terms works; a bare word list or a domain line alone
-# barely helps. List only names the model mishears: spoken file names such as
-# CLAUDE.md don't come out as written and cost accuracy on the names.
+# Names first, then a short domain line. The model reads this as background,
+# not instructions. Each extra name dilutes the others, and spoken file names
+# such as CLAUDE.md don't come out as written, so list only names it mishears.
 # ~/.config/tnt/context.txt replaces this whole string (an empty file means no
 # context).
-DEFAULT_CONTEXT = (
-    "Software engineering dictation. It may mention Anthropic, Claude, "
-    "Claude Code, and Codex."
-)
+DEFAULT_CONTEXT = "Anthropic, Claude, Claude Code, Codex\nSoftware engineering dictation."
 CONTEXT_FILE = Path.home() / ".config" / "tnt" / "context.txt"
 
 

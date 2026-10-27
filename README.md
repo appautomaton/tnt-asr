@@ -54,7 +54,14 @@ TNT starts with the first installed model in this order. `./bootstrap-mlx-asr.sh
 
 ### Recognition context
 
-TNT tells the model which names to expect. The default covers Anthropic, Claude, Claude Code, and Codex. `~/.config/tnt/context.txt` replaces the default entirely, so list every term you want, after a domain line: `Software engineering dictation. It may mention Anthropic, Claude, Claude Code, Codex, MLX, and Qwen.` A bare word list or a domain line alone barely helps. List only names the model mishears: each extra term can shift the others, and spoken file names such as `CLAUDE.md` don't come out as written. An empty file turns context off. TNT reads the file for each take.
+TNT tells the model which names to expect. The default covers Anthropic, Claude, Claude Code, and Codex. `~/.config/tnt/context.txt` replaces the default entirely: put every name you want on the first line, then a short domain line.
+
+```
+Anthropic, Claude, Claude Code, Codex, MLX, Qwen
+Software engineering dictation.
+```
+
+The model reads this as background, not instructions. List only names it mishears: each extra name weakens the others, and spoken file names such as `CLAUDE.md` don't come out as written. An empty file turns context off. TNT reads the file for each take.
 
 ## Keys
 
